@@ -1,0 +1,177 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+);
+
+const docLabels = {
+    'id_card': "🪪 Pièce d'identité",
+    'driving_license': "🚗 Permis de conduire",
+    'weapon_permit': "🔫 Permis de port d'arme"
+};
+
+// Handler pour le vote
+async function handleVote(interaction, applicationId, isFor) {
+    const { data: existingVote } = await supabase
+        .from('application_votes')
+        .select('id, vote')
+        .eq('application_id', applicationId)
+        .eq('voter_discord_id', interaction.user.id)
+        .single();
+
+    if (existingVote) {
+        if (existingVote.vote === isFor) {
+            return interaction.reply({
+                content: `Vous avez déjà voté ${isFor ? '👍 pour' : '👎 contre'}.`,
+                flags: 64
+            });
+        }
+
+        await supabase
+            .from('application_votes')
+            .update({ vote: isFor })
+            .eq('id', existingVote.id);
+
+        await interaction.reply({
+            content: `Vote modifié: ${isFor ? '👍 Pour' : '👎 Contre'}`,
+            flags: 64
+        });
+    } else {
+        await supabase
+            .from('application_votes')
+            .insert({
+                application_id: applicationId,
+                voter_discord_id: interaction.user.id,
+                voter_name: interaction.member?.displayName || interaction.user.username,
+                vote: isFor
+            });
+
+        await interaction.reply({
+            content: `Vote enregistré: ${isFor ? '👍 Pour' : '👎 Contre'}`,
+            flags: 64
+        });
+    }
+
+    // Afficher le récapitulatif
+    const { data: votes } = await supabase
+        .from('application_votes')
+        .select('vote')
+        .eq('application_id', applicationId);
+
+    const pour = votes?.filter(v => v.vote).length || 0;
+    const contre = votes?.filter(v => !v.vote).length || 0;
+
+    await interaction.channel.send({
+        content: `📊 **Votes:** 👍 ${pour} | 👎 ${contre}`
+    });
+}
+
+// Handler pour le changement de statut
+async function handleStatus(interaction, applicationId, newStatus) {
+    const actorName = interaction.member?.displayName || interaction.user.username;
+
+    await supabase
+        .from('applications')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', applicationId);
+
+    await supabase.from('application_logs').insert({
+        application_id: applicationId,
+        actor_discord_id: interaction.user.id,
+        actor_name: actorName,
+        action: 'status_change',
+        details: { new_status: newStatus }
+    });
+
+    await interaction.reply({ content: '✅ Statut mis à jour.', flags: 64 });
+
+    await interaction.channel.send({
+        content: `📊 **Statut:** En examen (par ${actorName})`
+    });
+}
+
+// Handler pour l'alerte
+async function handleAlert(interaction, applicationId) {
+    const { data: application } = await supabase
+        .from('applications')
+        .select('alert_user_id, first_name, last_name')
+        .eq('id', applicationId)
+        .single();
+
+    if (!application) {
+        return interaction.reply({ content: '❌ Candidature introuvable.', flags: 64 });
+    }
+
+    if (application.alert_user_id === interaction.user.id) {
+        await supabase
+            .from('applications')
+            .update({ alert_user_id: null })
+            .eq('id', applicationId);
+
+        await interaction.reply({ content: '🔕 Alerte désactivée.', flags: 64 });
+    } else {
+        await supabase
+            .from('applications')
+            .update({ alert_user_id: interaction.user.id })
+            .eq('id', applicationId);
+
+        await interaction.reply({
+            content: `🔔 Alerte activée ! Vous serez mentionné au prochain message de **${application.first_name} ${application.last_name}**.`,
+            flags: 64
+        });
+    }
+}
+
+// Handler pour les documents
+async function handleDocs(interaction, applicationId) {
+    await interaction.deferReply({ flags: 64 });
+
+    const { data: documents } = await supabase
+        .from('application_documents')
+        .select('type, file_url')
+        .eq('application_id', applicationId);
+
+    if (!documents || documents.length === 0) {
+        return interaction.editReply('📭 Aucun document trouvé.');
+    }
+
+    const docList = documents.map(doc => {
+        const label = docLabels[doc.type] || doc.type;
+        return `${label}:\n${doc.file_url}`;
+    }).join('\n\n');
+
+    await interaction.editReply(`📎 **Documents de la candidature:**\n\n${docList}`);
+}
+
+// Handler pour fermer/supprimer un salon
+async function handleCloseChannel(interaction) {
+    await interaction.deferReply({ flags: 64 });
+
+    const channel = interaction.channel;
+    if (!channel) {
+        return interaction.editReply('❌ Impossible de trouver le salon.');
+    }
+
+    try {
+        await interaction.editReply('✅ Salon en cours de suppression...');
+
+        // Supprimer le salon
+        await channel.delete('Candidature clôturée');
+    } catch (error) {
+        console.error('[CloseChannel] Error:', error);
+        try {
+            await interaction.editReply('❌ Erreur lors de la suppression du salon.');
+        } catch {
+            // Le salon a peut-être déjà été supprimé
+        }
+    }
+}
+
+module.exports = {
+    handleVote,
+    handleStatus,
+    handleAlert,
+    handleDocs,
+    handleCloseChannel
+};
