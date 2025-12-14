@@ -1,0 +1,15 @@
+# Bot Discord - Secrétaire Spades
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/

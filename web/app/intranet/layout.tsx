@@ -1,0 +1,51 @@
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { Sidebar } from "@/components/intranet/Sidebar"
+import { IntranetClientWrapper } from "@/components/intranet/ClientWrapper"
+import { checkDiscordRoles, EMS_GRADES, RoleType } from "@/lib/auth-utils"
+
+// Grades EMS valides pour accéder à l'intranet
+const VALID_INTRANET_ROLES = [...EMS_GRADES, 'recruiter']
+
+export default async function IntranetLayout({
+    children,
+}: {
+    children: React.ReactNode
+}) {
+    const session = await auth()
+
+    if (!session) {
+        redirect("/auth/signin")
+    }
+
+    // Récupérer les rôles pour la sidebar
+    let userRoles: RoleType[] = []
+    if (session.accessToken) {
+        const { roles } = await checkDiscordRoles(session.accessToken)
+        userRoles = roles
+
+        // Vérifier si l'utilisateur a au moins un grade EMS valide
+        const hasValidRole = roles.some(role => VALID_INTRANET_ROLES.includes(role as any))
+
+        if (!hasValidRole) {
+            redirect("/?error=no_access")
+        }
+    } else {
+        // Pas de token, rediriger
+        redirect("/auth/signin")
+    }
+
+    return (
+        <div className="min-h-screen bg-[#0f1110] text-gray-200">
+            <Sidebar userRoles={userRoles} />
+
+            <main className="ml-[280px] min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                    <IntranetClientWrapper userData={{ roles: userRoles }}>
+                        {children}
+                    </IntranetClientWrapper>
+                </div>
+            </main>
+        </div>
+    )
+}

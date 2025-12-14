@@ -1,0 +1,28 @@
+{
+  "name": "secretaire-spades",
+  "version": "1.0.0",
+  "description": "Bot Discord de gestion du recrutement LSPD/BCSO",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "recruitment",
+    "lspd",
+    "bcso"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.87.1",
+    "chalk": "^4.1.2",
+    "cors": "^2.8.5",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
