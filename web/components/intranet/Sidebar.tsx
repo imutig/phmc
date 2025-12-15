@@ -99,6 +99,12 @@ const menuItems = [
         roles: [...EMS_GRADES, 'recruiter']
     },
     {
+        href: "/intranet/ordonnance",
+        label: "Ordonnance",
+        icon: FileText,
+        roles: [...EMS_GRADES]
+    },
+    {
         href: "/intranet/wiki",
         label: "Wiki",
         icon: Book,

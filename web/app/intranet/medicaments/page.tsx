@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Pill, Plus, Edit2, Trash2, Search, Loader2, ChevronDown, Clock, AlertTriangle } from "lucide-react"
+import { Pill, Plus, Edit2, Trash2, Search, Loader2, ChevronDown, Clock, AlertTriangle, Ban } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { useToast } from "@/contexts/ToastContext"
+import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
+
+interface MedicationCategory {
+    id: string
+    name: string
+    color: string
+    icon?: string
+}
 
 interface Medication {
     id: string
@@ -14,13 +22,19 @@ interface Medication {
     duration?: string
     effects?: string
     side_effects?: string
+    category_id?: string
+    contraindications?: string
+    category?: MedicationCategory
 }
 
 export default function MedicamentsPage() {
     const [medications, setMedications] = useState<Medication[]>([])
+    const [categories, setCategories] = useState<MedicationCategory[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState("")
     const [expandedMed, setExpandedMed] = useState<string | null>(null)
+    const toast = useToast()
+    const { fireSuccess } = useConfirmAnimation()
 
     // Permissions : seuls direction/supervision peuvent éditer
     const [canEdit, setCanEdit] = useState(false)
@@ -35,6 +49,8 @@ export default function MedicamentsPage() {
     const [formDuration, setFormDuration] = useState("")
     const [formEffects, setFormEffects] = useState("")
     const [formSideEffects, setFormSideEffects] = useState("")
+    const [formCategoryId, setFormCategoryId] = useState("")
+    const [formContraindications, setFormContraindications] = useState("")
 
     useEffect(() => {
         fetchMedications()
@@ -58,7 +74,8 @@ export default function MedicamentsPage() {
             const res = await fetch('/api/intranet/medications')
             if (res.ok) {
                 const data = await res.json()
-                setMedications(data)
+                setMedications(data.medications || [])
+                setCategories(data.categories || [])
             }
         } catch (error) {
             console.error('Erreur:', error)
@@ -71,6 +88,26 @@ export default function MedicamentsPage() {
         med.name.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
+    // Grouper les médicaments par catégorie
+    const groupedMeds = filteredMeds.reduce((acc, med) => {
+        const catName = med.category?.name || 'Non classé'
+        if (!acc[catName]) {
+            acc[catName] = {
+                color: med.category?.color || '#6b7280',
+                medications: []
+            }
+        }
+        acc[catName].medications.push(med)
+        return acc
+    }, {} as Record<string, { color: string; medications: Medication[] }>)
+
+    // Trier les catégories (Non classé à la fin)
+    const sortedCategories = Object.keys(groupedMeds).sort((a, b) => {
+        if (a === 'Non classé') return 1
+        if (b === 'Non classé') return -1
+        return a.localeCompare(b)
+    })
+
     const handleAdd = async () => {
         const res = await fetch('/api/intranet/medications', {
             method: 'POST',
@@ -80,10 +117,14 @@ export default function MedicamentsPage() {
                 dosage: formDosage,
                 duration: formDuration,
                 effects: formEffects,
-                side_effects: formSideEffects
+                side_effects: formSideEffects,
+                category_id: formCategoryId || null,
+                contraindications: formContraindications
             })
         })
         if (res.ok) {
+            fireSuccess()
+            toast.success("Médicament ajouté !")
             fetchMedications()
             setIsAddOpen(false)
             resetForm()
@@ -100,10 +141,13 @@ export default function MedicamentsPage() {
                 dosage: formDosage,
                 duration: formDuration,
                 effects: formEffects,
-                side_effects: formSideEffects
+                side_effects: formSideEffects,
+                category_id: formCategoryId || null,
+                contraindications: formContraindications
             })
         })
         if (res.ok) {
+            toast.success("Médicament modifié !")
             fetchMedications()
             setEditingMed(null)
             resetForm()
@@ -122,6 +166,8 @@ export default function MedicamentsPage() {
         setFormDuration("")
         setFormEffects("")
         setFormSideEffects("")
+        setFormCategoryId("")
+        setFormContraindications("")
     }
 
     const openEdit = (med: Medication) => {
@@ -130,6 +176,8 @@ export default function MedicamentsPage() {
         setFormDuration(med.duration || "")
         setFormEffects(med.effects || "")
         setFormSideEffects(med.side_effects || "")
+        setFormCategoryId(med.category_id || "")
+        setFormContraindications(med.contraindications || "")
         setEditingMed(med)
     }
 
@@ -187,7 +235,7 @@ export default function MedicamentsPage() {
                 />
             </motion.div>
 
-            {/* Medications Grid */}
+            {/* Medications by Category */}
             {filteredMeds.length === 0 ? (
                 <div className="text-center py-12 border border-[#2a2a2a] bg-[#141414]">
                     <Pill className="w-12 h-12 mx-auto text-gray-600 mb-4" />
@@ -196,91 +244,119 @@ export default function MedicamentsPage() {
                     </p>
                 </div>
             ) : (
-                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredMeds.map(med => (
-                        <motion.div
-                            key={med.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="border border-[#2a2a2a] bg-[#141414] hover:bg-[#1a1a1a] transition-colors"
-                        >
-                            {/* Header */}
-                            <div
-                                className="flex items-center justify-between p-3 md:p-4 cursor-pointer"
-                                onClick={() => setExpandedMed(expandedMed === med.id ? null : med.id)}
-                            >
-                                <div className="flex items-center gap-2 md:gap-3 min-w-0">
-                                    <Pill className="w-4 md:w-5 h-4 md:h-5 text-blue-400 flex-shrink-0" />
-                                    <h3 className="font-display font-bold text-sm md:text-base truncate">{med.name}</h3>
+                <div className="space-y-6">
+                    {sortedCategories.map(catName => {
+                        const group = groupedMeds[catName]
+                        return (
+                            <div key={catName}>
+                                {/* Category Header */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: group.color }}
+                                    />
+                                    <h2 className="font-display font-bold text-lg uppercase tracking-wide">
+                                        {catName}
+                                    </h2>
+                                    <span className="text-gray-500 text-sm">({group.medications.length})</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${expandedMed === med.id ? 'rotate-180' : ''}`} />
+
+                                {/* Medications Grid */}
+                                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {group.medications.map(med => (
+                                        <motion.div
+                                            key={med.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="border border-[#2a2a2a] bg-[#141414] hover:bg-[#1a1a1a] transition-colors"
+                                        >
+                                            {/* Header */}
+                                            <div
+                                                className="flex items-center justify-between p-3 md:p-4 cursor-pointer"
+                                                onClick={() => setExpandedMed(expandedMed === med.id ? null : med.id)}
+                                            >
+                                                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                                                    <Pill className="w-4 md:w-5 h-4 md:h-5 flex-shrink-0" style={{ color: group.color }} />
+                                                    <h3 className="font-display font-bold text-sm md:text-base truncate">{med.name}</h3>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${expandedMed === med.id ? 'rotate-180' : ''}`} />
+                                                </div>
+                                            </div>
+
+                                            {/* Details - Only render when expanded */}
+                                            {expandedMed === med.id && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: "auto", opacity: 1 }}
+                                                    className="border-t border-[#2a2a2a] overflow-hidden"
+                                                >
+                                                    <div className="p-3 md:p-4 space-y-2 md:space-y-3">
+                                                        {med.dosage && (
+                                                            <div>
+                                                                <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Posologie</p>
+                                                                <p className="text-xs md:text-sm text-gray-300">{med.dosage}</p>
+                                                            </div>
+                                                        )}
+                                                        {med.duration && (
+                                                            <div className="flex items-start gap-2">
+                                                                <Clock className="w-3.5 md:w-4 h-3.5 md:h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                                                                <div>
+                                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Durée</p>
+                                                                    <p className="text-xs md:text-sm text-gray-300">{med.duration}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {med.effects && (
+                                                            <div>
+                                                                <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets</p>
+                                                                <p className="text-xs md:text-sm text-green-300">{med.effects}</p>
+                                                            </div>
+                                                        )}
+                                                        {med.side_effects && (
+                                                            <div className="flex items-start gap-2">
+                                                                <AlertTriangle className="w-3.5 md:w-4 h-3.5 md:h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                                                <div>
+                                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets secondaires</p>
+                                                                    <p className="text-xs md:text-sm text-yellow-300">{med.side_effects}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {med.contraindications && (
+                                                            <div className="flex items-start gap-2">
+                                                                <Ban className="w-3.5 md:w-4 h-3.5 md:h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                                                                <div>
+                                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Contre-indications</p>
+                                                                    <p className="text-xs md:text-sm text-red-300">{med.contraindications}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {canEdit && (
+                                                            <div className="flex justify-end gap-2 pt-2 border-t border-[#2a2a2a]">
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); openEdit(med); }}
+                                                                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded"
+                                                                >
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDelete(med.id); }}
+                                                                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </motion.div>
+                                    ))}
                                 </div>
                             </div>
-
-                            {/* Details - Only render when expanded */}
-                            <AnimatePresence>
-                                {expandedMed === med.id && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: "auto", opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="border-t border-[#2a2a2a] overflow-hidden"
-                                    >
-                                        <div className="p-3 md:p-4 space-y-2 md:space-y-3">
-                                            {med.dosage && (
-                                                <div>
-                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Posologie</p>
-                                                    <p className="text-xs md:text-sm text-gray-300">{med.dosage}</p>
-                                                </div>
-                                            )}
-                                            {med.duration && (
-                                                <div className="flex items-start gap-2">
-                                                    <Clock className="w-3.5 md:w-4 h-3.5 md:h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                                                    <div>
-                                                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Durée</p>
-                                                        <p className="text-xs md:text-sm text-gray-300">{med.duration}</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {med.effects && (
-                                                <div>
-                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets</p>
-                                                    <p className="text-xs md:text-sm text-green-300">{med.effects}</p>
-                                                </div>
-                                            )}
-                                            {med.side_effects && (
-                                                <div className="flex items-start gap-2">
-                                                    <AlertTriangle className="w-3.5 md:w-4 h-3.5 md:h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-                                                    <div>
-                                                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets secondaires</p>
-                                                        <p className="text-xs md:text-sm text-yellow-300">{med.side_effects}</p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {canEdit && (
-                                                <div className="flex justify-end gap-2 pt-2 border-t border-[#2a2a2a]">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); openEdit(med); }}
-                                                        className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded"
-                                                    >
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(med.id); }}
-                                                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
 
@@ -308,6 +384,16 @@ export default function MedicamentsPage() {
                         placeholder="Nom du médicament *"
                         className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
                     />
+                    <select
+                        value={formCategoryId}
+                        onChange={e => setFormCategoryId(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
+                    >
+                        <option value="">-- Catégorie (optionnel) --</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
                     <input
                         type="text"
                         value={formDosage}
@@ -332,6 +418,12 @@ export default function MedicamentsPage() {
                         value={formSideEffects}
                         onChange={e => setFormSideEffects(e.target.value)}
                         placeholder="Effets secondaires"
+                        className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white h-20 resize-none"
+                    />
+                    <textarea
+                        value={formContraindications}
+                        onChange={e => setFormContraindications(e.target.value)}
+                        placeholder="Contre-indications"
                         className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white h-20 resize-none"
                     />
                 </div>
@@ -361,6 +453,16 @@ export default function MedicamentsPage() {
                         placeholder="Nom du médicament *"
                         className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
                     />
+                    <select
+                        value={formCategoryId}
+                        onChange={e => setFormCategoryId(e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
+                    >
+                        <option value="">-- Catégorie (optionnel) --</option>
+                        {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
                     <input
                         type="text"
                         value={formDosage}
@@ -385,6 +487,12 @@ export default function MedicamentsPage() {
                         value={formSideEffects}
                         onChange={e => setFormSideEffects(e.target.value)}
                         placeholder="Effets secondaires"
+                        className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white h-20 resize-none"
+                    />
+                    <textarea
+                        value={formContraindications}
+                        onChange={e => setFormContraindications(e.target.value)}
+                        placeholder="Contre-indications"
                         className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white h-20 resize-none"
                     />
                 </div>

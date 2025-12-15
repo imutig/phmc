@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
-import { requireEmployeeAccess, requireEditorAccess } from "@/lib/auth-utils"
+import { requireEmployeeAccess, requireEditorAccess, checkDiscordRoles } from "@/lib/auth-utils"
+import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import { validateBody, WikiArticleSchema, WikiArticleUpdateSchema } from "@/lib/validations"
 
@@ -104,6 +105,25 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Récupérer le displayName depuis Discord
+    const session = await auth()
+    let displayName = 'Inconnu'
+    if (session?.accessToken) {
+        const roleResult = await checkDiscordRoles(session.accessToken)
+        displayName = roleResult.displayName || session.user?.name || 'Inconnu'
+    }
+
+    // Sauvegarder la création comme première entrée dans l'historique
+    await supabase.from('wiki_article_history').insert({
+        article_id: data.id,
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        is_published: data.is_published,
+        modified_by: authResult.session?.user?.discord_id,
+        modified_by_name: displayName
+    })
+
     return NextResponse.json(data, { status: 201 })
 }
 
@@ -129,6 +149,35 @@ export async function PUT(request: Request) {
 
     const supabase = await createClient()
 
+    // Récupérer l'ancienne version avant modification
+    const { data: oldArticle } = await supabase
+        .from('wiki_articles')
+        .select('title, content, category, is_published')
+        .eq('id', id)
+        .single()
+
+    // Récupérer le displayName depuis Discord
+    const session = await auth()
+    let displayName = 'Inconnu'
+    if (session?.accessToken) {
+        const roleResult = await checkDiscordRoles(session.accessToken)
+        displayName = roleResult.displayName || session.user?.name || 'Inconnu'
+    }
+
+    // Sauvegarder dans l'historique
+    if (oldArticle) {
+        await supabase.from('wiki_article_history').insert({
+            article_id: id,
+            title: oldArticle.title,
+            content: oldArticle.content,
+            category: oldArticle.category,
+            is_published: oldArticle.is_published,
+            modified_by: authResult.session?.user?.discord_id,
+            modified_by_name: displayName
+        })
+    }
+
+    // Mettre à jour l'article
     const { data, error } = await supabase
         .from('wiki_articles')
         .update({

@@ -15,7 +15,7 @@ module.exports = {
             // Récupérer les rôles configurés depuis Supabase
             const { data: roleConfigs, error: configError } = await supabase
                 .from('discord_roles')
-                .select('role_type, discord_role_id, display_name')
+                .select('role_type, discord_role_id, role_name')
                 .order('id', { ascending: true });
 
             if (configError || !roleConfigs || roleConfigs.length === 0) {
@@ -48,7 +48,7 @@ module.exports = {
 
                 if (members.length > 0) {
                     membersByGrade[grade] = {
-                        displayName: config.display_name || grade,
+                        displayName: config.role_name || grade,
                         members: members,
                         roleColor: role.hexColor
                     };
