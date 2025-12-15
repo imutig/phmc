@@ -22,8 +22,10 @@
     "@tiptap/starter-kit": "^3.13.0",
     "@upstash/ratelimit": "^2.0.7",
     "@upstash/redis": "^1.35.7",
+    "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.556.0",
     "next": "16.0.8",
     "next-auth": "^5.0.0-beta.30",
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

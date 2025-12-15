@@ -3,12 +3,13 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Book, Plus, Edit2, Trash2, Search, Loader2, ChevronRight, Save, X, Eye, GripVertical } from "lucide-react"
+import { Book, Plus, Edit2, Trash2, Search, Loader2, ChevronRight, Save, X, Eye, GripVertical, History } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { WikiEditor } from "@/components/intranet/wiki/WikiEditor"
 import { useToast } from "@/contexts/ToastContext"
 import { usePermissions } from "@/components/intranet/ClientWrapper"
+import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
 
 interface WikiArticle {
     id: string
@@ -44,6 +45,7 @@ function WikiContent() {
     const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null)
     const toast = useToast()
     const { canEdit } = usePermissions() // Utilisation du context centralisé
+    const { fireSuccess } = useConfirmAnimation()
 
     // Modal states
     const [isEditOpen, setIsEditOpen] = useState(false)
@@ -59,6 +61,20 @@ function WikiContent() {
     const [showTablePopup, setShowTablePopup] = useState(false)
     const [tableRows, setTableRows] = useState(3)
     const [tableCols, setTableCols] = useState(3)
+
+    // Historique
+    interface WikiHistory {
+        id: string
+        title: string
+        content: string
+        category: string
+        modified_by_name: string
+        modified_at: string
+    }
+    const [historyOpen, setHistoryOpen] = useState(false)
+    const [historyData, setHistoryData] = useState<WikiHistory[]>([])
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const [viewingHistory, setViewingHistory] = useState<WikiHistory | null>(null)
 
     useEffect(() => {
         fetchData()
@@ -195,6 +211,7 @@ function WikiContent() {
                 })
                 if (res.ok) {
                     const updated = await res.json()
+                    fireSuccess()
                     toast.success("Article mis à jour")
                     setIsEditOpen(false)
                     // Mettre à jour l'article sélectionné immédiatement
@@ -224,6 +241,7 @@ function WikiContent() {
                     })
                 })
                 if (res.ok) {
+                    fireSuccess()
                     toast.success("Article créé")
                     setIsEditOpen(false)
                     fetchData()
@@ -250,6 +268,24 @@ function WikiContent() {
             fetchData()
         } catch (e) {
             toast.error("Erreur suppression")
+        }
+    }
+
+    const fetchHistory = async (articleId: string) => {
+        setHistoryLoading(true)
+        setHistoryOpen(true)
+        try {
+            const res = await fetch(`/api/intranet/wiki/history?article_id=${articleId}`)
+            if (res.ok) {
+                const data = await res.json()
+                setHistoryData(data)
+            } else {
+                toast.error("Erreur chargement historique")
+            }
+        } catch (e) {
+            toast.error("Erreur réseau")
+        } finally {
+            setHistoryLoading(false)
         }
     }
 
@@ -432,6 +468,13 @@ function WikiContent() {
                             </div>
                             {canEdit && (
                                 <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => fetchHistory(selectedArticle.id)}
+                                        className="p-2 text-gray-400 hover:text-blue-400 hover:bg-white/10 rounded transition-colors"
+                                        title="Historique des modifications"
+                                    >
+                                        <History className="w-4 h-4" />
+                                    </button>
                                     <button
                                         onClick={() => openEditArticle(selectedArticle)}
                                         className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
@@ -618,6 +661,58 @@ function WikiContent() {
                     margin: 0.5rem 0;
                 }
             `}</style>
+
+            {/* Modal Historique */}
+            <Modal
+                isOpen={historyOpen}
+                onClose={() => { setHistoryOpen(false); setViewingHistory(null); }}
+                title={viewingHistory ? `Version du ${new Date(viewingHistory.modified_at).toLocaleString('fr-FR')}` : "Historique des modifications"}
+            >
+                {viewingHistory ? (
+                    <div>
+                        <button
+                            onClick={() => setViewingHistory(null)}
+                            className="flex items-center gap-2 text-gray-400 hover:text-white mb-4"
+                        >
+                            <ChevronRight className="w-4 h-4 rotate-180" />
+                            Retour à la liste
+                        </button>
+                        <div className="border border-[#2a2a2a] p-4 bg-black/30 max-h-[50vh] overflow-y-auto">
+                            <h3 className="font-bold text-lg mb-2">{viewingHistory.title}</h3>
+                            <div
+                                className="wiki-article-content text-gray-300 text-sm"
+                                dangerouslySetInnerHTML={{ __html: renderMarkdown(viewingHistory.content) }}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                        {historyLoading ? (
+                            <div className="flex justify-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin text-red-500" />
+                            </div>
+                        ) : historyData.length === 0 ? (
+                            <p className="text-gray-500 text-center py-8">Aucun historique disponible</p>
+                        ) : (
+                            historyData.map(h => (
+                                <button
+                                    key={h.id}
+                                    onClick={() => setViewingHistory(h)}
+                                    className="w-full flex items-center justify-between p-3 bg-black/30 border border-white/5 hover:border-red-500/30 transition-colors text-left"
+                                >
+                                    <div>
+                                        <p className="font-bold text-white">{h.title}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {new Date(h.modified_at).toLocaleString('fr-FR')} par {h.modified_by_name || 'Inconnu'}
+                                        </p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                </button>
+                            ))
+                        )}
+                    </div>
+                )}
+            </Modal>
         </div>
     )
 }

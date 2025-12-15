@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useToast } from "@/contexts/ToastContext"
+import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
 
 interface Service {
     id: string
@@ -49,6 +50,7 @@ export default function ServicesPage() {
     const [endTime, setEndTime] = useState("12:00")
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState("")
+    const { fireSuccess } = useConfirmAnimation()
 
     useEffect(() => {
         fetchServices()
@@ -96,6 +98,8 @@ export default function ServicesPage() {
             })
 
             if (res.ok) {
+                fireSuccess()
+                toast.success("Service ajouté !")
                 setIsAddOpen(false)
                 fetchServices()
             } else {

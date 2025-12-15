@@ -14,13 +14,13 @@ export async function PUT(
 
     const { id } = await params
     const body = await request.json()
-    const { name, dosage, duration, effects, side_effects } = body
+    const { name, dosage, duration, effects, side_effects, category_id, contraindications } = body
 
     const supabase = await createClient()
 
     const { data, error } = await supabase
         .from('medications')
-        .update({ name, dosage, duration, effects, side_effects, updated_at: new Date().toISOString() })
+        .update({ name, dosage, duration, effects, side_effects, category_id, contraindications, updated_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single()
