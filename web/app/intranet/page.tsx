@@ -69,11 +69,11 @@ function NextEventWidget() {
             {/* Accent bar */}
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: event.color }} />
 
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                 <div className="pl-4">
                     <div className="text-xs text-gray-500 uppercase tracking-widest mb-1">Prochain événement</div>
-                    <h3 className="font-display text-xl font-bold text-white mb-2">{event.title}</h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <h3 className="font-display text-lg md:text-xl font-bold text-white mb-2">{event.title}</h3>
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4 text-sm text-gray-400">
                         <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" style={{ color: event.color }} />
                             {eventDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -92,7 +92,7 @@ function NextEventWidget() {
                 </div>
 
                 {/* Countdown */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3 mt-4 md:mt-0">
                     {[
                         { value: countdown.days, label: 'j' },
                         { value: countdown.hours, label: 'h' },
@@ -101,7 +101,7 @@ function NextEventWidget() {
                     ].map((unit, i) => (
                         <div key={i} className="text-center">
                             <div
-                                className="w-12 h-12 rounded-lg flex items-center justify-center font-display text-xl font-bold"
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center font-display text-lg md:text-xl font-bold"
                                 style={{ backgroundColor: event.color + '20', color: event.color }}
                             >
                                 {unit.value.toString().padStart(2, '0')}
@@ -156,23 +156,23 @@ export default function IntranetPage() {
     }, [])
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="py-4 md:py-8 space-y-6 md:space-y-8">
             {/* Header avec rôle affiché */}
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <Image src="/logo_phmc.webp" alt="PHMC Logo" width={60} height={60} />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 md:mb-8">
+                <div className="flex items-center gap-3 md:gap-4">
+                    <Image src="/logo_phmc.webp" alt="PHMC Logo" width={48} height={48} className="md:w-[60px] md:h-[60px]" />
                     <div>
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight text-white mb-1">
+                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight text-white mb-1">
                             Intranet EMS
                         </h1>
-                        <p className="text-gray-400 font-sans">
+                        <p className="text-gray-400 font-sans text-sm md:text-base">
                             Bienvenue sur votre espace personnel.
                         </p>
                     </div>
                 </div>
 
                 {/* Badge de rôle */}
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-row md:flex-col items-start md:items-end gap-2 md:gap-1">
                     {loading ? (
                         <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
                     ) : (
@@ -184,7 +184,7 @@ export default function IntranetPage() {
                                 </span>
                             </div>
                             {allRoles.length > 0 && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-gray-500 hidden md:inline">
                                     Rôles: {allRoles.join(', ')}
                                 </span>
                             )}

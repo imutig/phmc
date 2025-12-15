@@ -329,9 +329,12 @@ function WikiContent() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-2rem)]">
-            {/* Sidebar Wiki */}
-            <div className="w-80 border-r border-[#2a2a2a] flex flex-col">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-5rem)] md:h-[calc(100vh-2rem)]">
+            {/* Sidebar Wiki - Masquée sur mobile quand un article est sélectionné */}
+            <div className={`
+                ${selectedArticle ? 'hidden md:flex' : 'flex'}
+                w-full md:w-80 border-b md:border-b-0 md:border-r border-[#2a2a2a] flex-col
+            `}>
                 {/* Header */}
                 <div className="p-4 border-b border-[#2a2a2a]">
                     <div className="flex items-center justify-between mb-4">
@@ -387,7 +390,7 @@ function WikiContent() {
                                         `}
                                     >
                                         {canEdit && (
-                                            <GripVertical className="w-4 h-4 text-gray-600 cursor-grab flex-shrink-0" />
+                                            <GripVertical className="w-4 h-4 text-gray-600 cursor-grab flex-shrink-0 hidden md:block" />
                                         )}
                                         <button
                                             onClick={() => setSelectedArticle(article)}
@@ -404,16 +407,28 @@ function WikiContent() {
                 </div>
             </div>
 
-            {/* Contenu article */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Contenu article - Plein écran sur mobile */}
+            <div className={`
+                ${selectedArticle ? 'flex' : 'hidden md:flex'}
+                flex-1 flex-col overflow-y-auto
+            `}>
                 {selectedArticle ? (
-                    <div className="p-8">
-                        <div className="flex items-start justify-between mb-6">
+                    <div className="p-4 md:p-8">
+                        {/* Bouton retour sur mobile */}
+                        <button
+                            onClick={() => setSelectedArticle(null)}
+                            className="md:hidden flex items-center gap-2 text-gray-400 hover:text-white mb-4"
+                        >
+                            <ChevronRight className="w-4 h-4 rotate-180" />
+                            <span className="text-sm">Retour à la liste</span>
+                        </button>
+
+                        <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4">
                             <div>
                                 <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
                                     {CATEGORY_LABELS[selectedArticle.category] || selectedArticle.category}
                                 </div>
-                                <h1 className="font-display text-3xl font-bold">{selectedArticle.title}</h1>
+                                <h1 className="font-display text-2xl md:text-3xl font-bold">{selectedArticle.title}</h1>
                             </div>
                             {canEdit && (
                                 <div className="flex items-center gap-2">

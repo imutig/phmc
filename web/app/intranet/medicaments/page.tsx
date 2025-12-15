@@ -142,31 +142,31 @@ export default function MedicamentsPage() {
     }
 
     return (
-        <div className="p-8">
+        <div className="py-4 md:p-8">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex justify-between items-start mb-8"
+                className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6 md:mb-8"
             >
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                        <Pill className="w-8 h-8 text-blue-500" />
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight">
+                        <Pill className="w-6 md:w-8 h-6 md:h-8 text-blue-500" />
+                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
                             Médicaments
                         </h1>
                     </div>
-                    <p className="text-gray-400 font-sans">
+                    <p className="text-gray-400 font-sans text-sm md:text-base">
                         Base de données des médicaments et posologies
                     </p>
                 </div>
                 {canEdit && (
                     <button
                         onClick={() => setIsAddOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-display font-bold text-sm uppercase tracking-widest transition-colors"
+                        className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-display font-bold text-xs md:text-sm uppercase tracking-widest transition-colors self-start"
                     >
                         <Plus className="w-4 h-4" />
-                        Médicament
+                        <span className="hidden sm:inline">Médicament</span>
                     </button>
                 )}
             </motion.div>
@@ -175,15 +175,15 @@ export default function MedicamentsPage() {
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-3 mb-6 p-4 border border-[#2a2a2a] bg-[#141414]"
+                className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6 p-3 md:p-4 border border-[#2a2a2a] bg-[#141414]"
             >
-                <Search className="w-5 h-5 text-gray-500" />
+                <Search className="w-4 md:w-5 h-4 md:h-5 text-gray-500 flex-shrink-0" />
                 <input
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Rechercher un médicament..."
-                    className="flex-1 bg-transparent text-white focus:outline-none placeholder:text-gray-600"
+                    className="flex-1 bg-transparent text-white text-sm md:text-base focus:outline-none placeholder:text-gray-600"
                 />
             </motion.div>
 
@@ -191,12 +191,12 @@ export default function MedicamentsPage() {
             {filteredMeds.length === 0 ? (
                 <div className="text-center py-12 border border-[#2a2a2a] bg-[#141414]">
                     <Pill className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-                    <p className="text-gray-500">
+                    <p className="text-gray-500 text-sm md:text-base">
                         {searchQuery ? "Aucun médicament trouvé" : "Aucun médicament enregistré"}
                     </p>
                 </div>
             ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filteredMeds.map(med => (
                         <motion.div
                             key={med.id}
@@ -206,15 +206,15 @@ export default function MedicamentsPage() {
                         >
                             {/* Header */}
                             <div
-                                className="flex items-center justify-between p-4 cursor-pointer"
+                                className="flex items-center justify-between p-3 md:p-4 cursor-pointer"
                                 onClick={() => setExpandedMed(expandedMed === med.id ? null : med.id)}
                             >
-                                <div className="flex items-center gap-3">
-                                    <Pill className="w-5 h-5 text-blue-400" />
-                                    <h3 className="font-display font-bold">{med.name}</h3>
+                                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                                    <Pill className="w-4 md:w-5 h-4 md:h-5 text-blue-400 flex-shrink-0" />
+                                    <h3 className="font-display font-bold text-sm md:text-base truncate">{med.name}</h3>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${expandedMed === med.id ? 'rotate-180' : ''}`} />
+                                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${expandedMed === med.id ? 'rotate-180' : ''}`} />
                                 </div>
                             </div>
 
@@ -227,34 +227,34 @@ export default function MedicamentsPage() {
                                         exit={{ height: 0, opacity: 0 }}
                                         className="border-t border-[#2a2a2a] overflow-hidden"
                                     >
-                                        <div className="p-4 space-y-3">
+                                        <div className="p-3 md:p-4 space-y-2 md:space-y-3">
                                             {med.dosage && (
                                                 <div>
-                                                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Posologie</p>
-                                                    <p className="text-sm text-gray-300">{med.dosage}</p>
+                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Posologie</p>
+                                                    <p className="text-xs md:text-sm text-gray-300">{med.dosage}</p>
                                                 </div>
                                             )}
                                             {med.duration && (
                                                 <div className="flex items-start gap-2">
-                                                    <Clock className="w-4 h-4 text-blue-400 mt-0.5" />
+                                                    <Clock className="w-3.5 md:w-4 h-3.5 md:h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                                                     <div>
-                                                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Durée</p>
-                                                        <p className="text-sm text-gray-300">{med.duration}</p>
+                                                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Durée</p>
+                                                        <p className="text-xs md:text-sm text-gray-300">{med.duration}</p>
                                                     </div>
                                                 </div>
                                             )}
                                             {med.effects && (
                                                 <div>
-                                                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Effets</p>
-                                                    <p className="text-sm text-green-300">{med.effects}</p>
+                                                    <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets</p>
+                                                    <p className="text-xs md:text-sm text-green-300">{med.effects}</p>
                                                 </div>
                                             )}
                                             {med.side_effects && (
                                                 <div className="flex items-start gap-2">
-                                                    <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5" />
+                                                    <AlertTriangle className="w-3.5 md:w-4 h-3.5 md:h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
                                                     <div>
-                                                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Effets secondaires</p>
-                                                        <p className="text-sm text-yellow-300">{med.side_effects}</p>
+                                                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Effets secondaires</p>
+                                                        <p className="text-xs md:text-sm text-yellow-300">{med.side_effects}</p>
                                                     </div>
                                                 </div>
                                             )}

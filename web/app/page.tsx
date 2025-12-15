@@ -149,26 +149,26 @@ function HomeContent() {
           </div>
 
           {/* Auth Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {isAuthenticated ? (
               <>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Link
                     href="/intranet"
-                    className="px-4 py-2 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2 btn-magnetic"
+                    className="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2 btn-magnetic"
                   >
                     <LayoutDashboard className="w-4 h-4" />
-                    Accès Staff
+                    <span className="hidden md:inline">Accès Staff</span>
                   </Link>
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => signOut()}
-                  className="px-4 py-2 border border-white/30 hover:bg-red-600 hover:border-red-600 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2"
+                  className="px-3 md:px-4 py-2 border border-white/30 hover:bg-red-600 hover:border-red-600 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2"
                 >
                   <LogOut className="w-4 h-4" />
-                  Déconnexion
+                  <span className="hidden md:inline">Déconnexion</span>
                 </motion.button>
               </>
             ) : (
@@ -176,7 +176,7 @@ function HomeContent() {
                 whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(16, 185, 129, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => signIn("discord", { callbackUrl: "/intranet" })}
-                className="px-6 py-2 border border-red-500/30 hover:bg-red-500 hover:text-black transition-all font-display font-bold tracking-widest text-sm uppercase"
+                className="px-4 md:px-6 py-2 border border-red-500/30 hover:bg-red-500 hover:text-black transition-all font-display font-bold tracking-widest text-xs md:text-sm uppercase"
               >
                 Accès Staff
               </motion.button>
