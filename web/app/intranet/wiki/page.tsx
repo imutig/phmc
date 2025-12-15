@@ -7,6 +7,7 @@ import { Book, Plus, Edit2, Trash2, Search, Loader2, ChevronRight, Save, X, Eye,
 import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { WikiEditor } from "@/components/intranet/wiki/WikiEditor"
+import { WikiAssistant } from "@/components/intranet/wiki/WikiAssistant"
 import { useToast } from "@/contexts/ToastContext"
 import { usePermissions } from "@/components/intranet/ClientWrapper"
 import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
@@ -725,6 +726,8 @@ export default function WikiPage() {
             </div>
         }>
             <WikiContent />
+            <WikiAssistant />
         </Suspense>
     )
 }
+

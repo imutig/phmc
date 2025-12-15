@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { Sidebar } from "@/components/intranet/Sidebar"
 import { IntranetClientWrapper } from "@/components/intranet/ClientWrapper"
-import { checkDiscordRoles, EMS_GRADES, RoleType } from "@/lib/auth-utils"
+import { EMS_GRADES } from "@/lib/auth-utils"
 
 // Grades EMS valides pour accéder à l'intranet
 const VALID_INTRANET_ROLES = [...EMS_GRADES, 'recruiter']
@@ -18,21 +18,14 @@ export default async function IntranetLayout({
         redirect("/auth/signin")
     }
 
-    // Récupérer les rôles pour la sidebar
-    let userRoles: RoleType[] = []
-    if (session.accessToken) {
-        const { roles } = await checkDiscordRoles(session.accessToken)
-        userRoles = roles
+    // Utiliser les rôles stockés dans la session (plus d'appel Discord ici!)
+    const userRoles = session.user?.roles || []
 
-        // Vérifier si l'utilisateur a au moins un grade EMS valide
-        const hasValidRole = roles.some(role => VALID_INTRANET_ROLES.includes(role as any))
+    // Vérifier si l'utilisateur a au moins un grade EMS valide
+    const hasValidRole = userRoles.some(role => VALID_INTRANET_ROLES.includes(role as any))
 
-        if (!hasValidRole) {
-            redirect("/?error=no_access")
-        }
-    } else {
-        // Pas de token, rediriger
-        redirect("/auth/signin")
+    if (!hasValidRole) {
+        redirect("/?error=no_access")
     }
 
     return (
