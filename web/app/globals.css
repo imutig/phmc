@@ -552,3 +552,31 @@ input:focus-visible {
   outline: 2px solid rgba(59, 130, 246, 0.5);
   outline-offset: 2px;
 }
+
+/* ===== INTERACTIVE GLOW BORDER ===== */
+.glow-border {
+  --glow-x: 50%;
+  --glow-y: 50%;
+  --glow-opacity: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(300px circle at var(--glow-x) var(--glow-y),
+      rgba(220, 38, 38, 0.5),
+      rgba(220, 38, 38, 0.2) 30%,
+      transparent 70%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: var(--glow-opacity);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}

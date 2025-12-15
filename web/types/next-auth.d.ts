@@ -1,5 +1,6 @@
 import { DefaultSession, DefaultUser } from "next-auth"
 import { DefaultJWT } from "next-auth/jwt"
+import type { RoleType } from "@/lib/auth-utils"
 
 declare module "next-auth" {
     interface Session extends DefaultSession {
@@ -7,6 +8,8 @@ declare module "next-auth" {
             discord_id: string
             discord_username: string
             discord_avatar: string
+            roles: RoleType[]
+            displayName: string
         } & DefaultSession["user"]
         accessToken?: string
     }
@@ -24,5 +27,7 @@ declare module "next-auth/jwt" {
         discord_username?: string
         discord_avatar?: string
         accessToken?: string
+        roles?: RoleType[]
+        displayName?: string
     }
 }

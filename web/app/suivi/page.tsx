@@ -223,73 +223,86 @@ export default function SuiviPage() {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {applications.map((app, idx) => (
-                                    <motion.div
-                                        key={app.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.1 }}
-                                        className="p-6 border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className="px-3 py-1 text-xs font-display font-bold uppercase tracking-widest bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
-                                                        {app.service}
-                                                    </span>
-                                                    <span className={`px-3 py-1 text-xs font-sans flex items-center gap-1.5 ${STATUS_COLORS[app.status]}`}>
-                                                        {STATUS_ICONS[app.status]}
-                                                        {STATUS_LABELS[app.status]}
-                                                    </span>
-                                                </div>
+                                {applications.map((app, idx) => {
+                                    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const x = e.clientX - rect.left;
+                                        const y = e.clientY - rect.top;
+                                        e.currentTarget.style.setProperty('--glow-x', `${x}px`);
+                                        e.currentTarget.style.setProperty('--glow-y', `${y}px`);
+                                    };
 
-                                                <h3 className="font-display text-lg font-bold uppercase mb-1">
-                                                    {app.first_name} {app.last_name}
-                                                </h3>
+                                    return (
+                                        <motion.div
+                                            key={app.id}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: idx * 0.1 }}
+                                            onMouseMove={handleMouseMove}
+                                            onMouseEnter={(e) => e.currentTarget.style.setProperty('--glow-opacity', '1')}
+                                            onMouseLeave={(e) => e.currentTarget.style.setProperty('--glow-opacity', '0')}
+                                            className="p-6 border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors rounded-2xl glow-border"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className="px-3 py-1 text-xs font-display font-bold uppercase tracking-widest bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
+                                                            {app.service}
+                                                        </span>
+                                                        <span className={`px-3 py-1 text-xs font-sans flex items-center gap-1.5 ${STATUS_COLORS[app.status]}`}>
+                                                            {STATUS_ICONS[app.status]}
+                                                            {STATUS_LABELS[app.status]}
+                                                        </span>
+                                                    </div>
 
-                                                <p className="text-sm text-gray-500 font-mono">
-                                                    Déposée le {new Date(app.created_at).toLocaleDateString('fr-FR', {
-                                                        day: 'numeric',
-                                                        month: 'long',
-                                                        year: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </p>
+                                                    <h3 className="font-display text-lg font-bold uppercase mb-1">
+                                                        {app.first_name} {app.last_name}
+                                                    </h3>
 
-                                                {app.interview_date && (
-                                                    <p className="text-sm text-purple-400 mt-2 flex items-center gap-2 font-sans">
-                                                        <Calendar className="w-4 h-4" />
-                                                        Entretien prévu le {new Date(app.interview_date).toLocaleDateString('fr-FR', {
+                                                    <p className="text-sm text-gray-500 font-mono">
+                                                        Déposée le {new Date(app.created_at).toLocaleDateString('fr-FR', {
                                                             day: 'numeric',
                                                             month: 'long',
+                                                            year: 'numeric',
                                                             hour: '2-digit',
                                                             minute: '2-digit'
                                                         })}
                                                     </p>
+
+                                                    {app.interview_date && (
+                                                        <p className="text-sm text-purple-400 mt-2 flex items-center gap-2 font-sans">
+                                                            <Calendar className="w-4 h-4" />
+                                                            Entretien prévu le {new Date(app.interview_date).toLocaleDateString('fr-FR', {
+                                                                day: 'numeric',
+                                                                month: 'long',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit'
+                                                            })}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Bouton retirer */}
+                                                {CAN_WITHDRAW_STATUSES.includes(app.status) && (
+                                                    <button
+                                                        onClick={() => setShowConfirmModal(app.id)}
+                                                        disabled={withdrawingId === app.id}
+                                                        className="flex items-center gap-2 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {withdrawingId === app.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="w-4 h-4" />
+                                                        )}
+                                                        <span className="font-display text-xs uppercase tracking-widest">
+                                                            {withdrawingId === app.id ? "..." : "Retirer"}
+                                                        </span>
+                                                    </button>
                                                 )}
                                             </div>
-
-                                            {/* Bouton retirer */}
-                                            {CAN_WITHDRAW_STATUSES.includes(app.status) && (
-                                                <button
-                                                    onClick={() => setShowConfirmModal(app.id)}
-                                                    disabled={withdrawingId === app.id}
-                                                    className="flex items-center gap-2 px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/30 transition-colors disabled:opacity-50"
-                                                >
-                                                    {withdrawingId === app.id ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <Trash2 className="w-4 h-4" />
-                                                    )}
-                                                    <span className="font-display text-xs uppercase tracking-widest">
-                                                        {withdrawingId === app.id ? "..." : "Retirer"}
-                                                    </span>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                        </motion.div>
+                                    );
+                                })}
                             </div>
                         )}
                     </motion.div>
