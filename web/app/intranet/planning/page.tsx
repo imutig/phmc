@@ -192,55 +192,57 @@ export default function PlanningPage() {
     }
 
     return (
-        <div className="p-8">
+        <div className="py-4 md:p-8">
             <Breadcrumbs items={[{ label: "Planning" }]} />
 
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex justify-between items-start mb-8"
+                className="mb-6 md:mb-8"
             >
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Calendar className="w-8 h-8 text-red-500" />
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight">
-                            Planning Événements
-                        </h1>
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <Calendar className="w-6 md:w-8 h-6 md:h-8 text-red-500" />
+                            <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
+                                Planning Événements
+                            </h1>
+                        </div>
+                        <p className="text-gray-400 text-sm md:text-base">
+                            Événements et occasions spéciales à venir
+                        </p>
                     </div>
-                    <p className="text-gray-400">
-                        Événements et occasions spéciales à venir
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    {/* Toggle Vue */}
-                    <div className="flex bg-black/30 rounded-lg p-1 border border-white/10">
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                        >
-                            <List className="w-4 h-4" />
-                            Liste
-                        </button>
-                        <button
-                            onClick={() => setViewMode('calendar')}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${viewMode === 'calendar' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
-                                }`}
-                        >
-                            <LayoutGrid className="w-4 h-4" />
-                            Calendrier
-                        </button>
+                    <div className="flex items-center gap-2 md:gap-3">
+                        {/* Toggle Vue */}
+                        <div className="flex bg-black/30 rounded-lg p-1 border border-white/10">
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-md text-xs md:text-sm transition-colors ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+                                    }`}
+                            >
+                                <List className="w-4 h-4" />
+                                <span className="hidden sm:inline">Liste</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('calendar')}
+                                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-md text-xs md:text-sm transition-colors ${viewMode === 'calendar' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+                                    }`}
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                                <span className="hidden sm:inline">Calendrier</span>
+                            </button>
+                        </div>
+                        {canEdit && (
+                            <button
+                                onClick={openNewEvent}
+                                className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded transition-colors text-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span className="hidden sm:inline">Nouvel événement</span>
+                            </button>
+                        )}
                     </div>
-                    {canEdit && (
-                        <button
-                            onClick={openNewEvent}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded transition-colors"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nouvel événement
-                        </button>
-                    )}
                 </div>
             </motion.div>
 
@@ -268,13 +270,13 @@ export default function PlanningPage() {
                     )}
                 </div>
             ) : (
-                <div className="space-y-8">
+                <div className="space-y-6 md:space-y-8">
                     {Object.entries(groupedByMonth).map(([month, monthEvents]) => (
                         <div key={month}>
-                            <h2 className="text-lg font-bold text-gray-400 uppercase tracking-wider mb-4 capitalize">
+                            <h2 className="text-base md:text-lg font-bold text-gray-400 uppercase tracking-wider mb-3 md:mb-4 capitalize">
                                 {month}
                             </h2>
-                            <div className="space-y-4">
+                            <div className="space-y-3 md:space-y-4">
                                 {monthEvents.map(event => (
                                     <motion.div
                                         key={event.id}
@@ -285,53 +287,54 @@ export default function PlanningPage() {
                                         <div className="flex">
                                             {/* Barre de couleur */}
                                             <div
-                                                className="w-2 flex-shrink-0"
+                                                className="w-1.5 md:w-2 flex-shrink-0"
                                                 style={{ backgroundColor: event.color }}
                                             />
 
                                             {/* Contenu */}
-                                            <div className="flex-1 p-4">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h3 className="font-display font-bold text-lg text-white mb-1">
+                                            <div className="flex-1 p-3 md:p-4">
+                                                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2 md:gap-0">
+                                                    <div className="flex-1">
+                                                        <h3 className="font-display font-bold text-base md:text-lg text-white mb-1">
                                                             {event.title}
                                                         </h3>
-                                                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                                                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
                                                             <span className="flex items-center gap-1">
-                                                                <Calendar className="w-4 h-4" />
-                                                                {formatDate(event.event_date)}
+                                                                <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                                                                <span className="hidden sm:inline">{formatDate(event.event_date)}</span>
+                                                                <span className="sm:hidden">{new Date(event.event_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                                                             </span>
                                                             <span className="flex items-center gap-1">
-                                                                <Clock className="w-4 h-4" />
+                                                                <Clock className="w-3 h-3 md:w-4 md:h-4" />
                                                                 {formatTime(event.event_date)}
                                                             </span>
                                                             {event.location && (
                                                                 <span className="flex items-center gap-1">
-                                                                    <MapPin className="w-4 h-4" />
-                                                                    {event.location}
+                                                                    <MapPin className="w-3 h-3 md:w-4 md:h-4" />
+                                                                    <span className="truncate max-w-[100px] md:max-w-none">{event.location}</span>
                                                                 </span>
                                                             )}
                                                         </div>
                                                         {event.description && (
-                                                            <p className="text-gray-500 mt-2 text-sm">
+                                                            <p className="text-gray-500 mt-2 text-xs md:text-sm line-clamp-2">
                                                                 {event.description}
                                                             </p>
                                                         )}
                                                     </div>
 
                                                     {canEdit && (
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-1 md:gap-2">
                                                             <button
                                                                 onClick={() => openEditEvent(event)}
-                                                                className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded"
+                                                                className="p-1.5 md:p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded"
                                                             >
-                                                                <Edit2 className="w-4 h-4" />
+                                                                <Edit2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDelete(event)}
-                                                                className="p-2 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded"
+                                                                className="p-1.5 md:p-2 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded"
                                                             >
-                                                                <Trash2 className="w-4 h-4" />
+                                                                <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                                             </button>
                                                         </div>
                                                     )}

@@ -39,8 +39,8 @@ export default async function IntranetLayout({
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
             <Sidebar userRoles={userRoles} />
 
-            <main className="ml-[280px] min-h-screen">
-                <div className="max-w-7xl mx-auto">
+            <main className="ml-0 md:ml-[280px] min-h-screen pt-14 md:pt-0">
+                <div className="max-w-7xl mx-auto px-4 md:px-6">
                     <IntranetClientWrapper userData={{ roles: userRoles }}>
                         {children}
                     </IntranetClientWrapper>

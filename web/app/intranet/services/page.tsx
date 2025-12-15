@@ -159,23 +159,23 @@ export default function ServicesPage() {
     }
 
     return (
-        <div className="p-8">
+        <div className="py-4 md:p-8">
             <Breadcrumbs items={[{ label: "Mes Services" }]} />
 
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex justify-between items-start mb-6"
+                className="mb-6"
             >
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                        <Clock className="w-8 h-8 text-red-500" />
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight">
+                        <Clock className="w-6 md:w-8 h-6 md:h-8 text-red-500" />
+                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
                             Mes Services
                         </h1>
                     </div>
-                    <p className="text-gray-400 font-sans">
+                    <p className="text-gray-400 font-sans text-sm md:text-base">
                         Gérez vos prises de service et consultez votre salaire
                     </p>
                 </div>
@@ -197,22 +197,25 @@ export default function ServicesPage() {
 
             {/* Stats */}
             {stats && (
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Heures</p>
-                        <p className="font-display text-2xl font-bold text-white">
+                <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">Heures</p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-white">
                             {stats.totalHours}h{stats.totalMinutes % 60 > 0 ? (stats.totalMinutes % 60) : ''}
                         </p>
                     </div>
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Salaire</p>
-                        <p className="font-display text-2xl font-bold text-green-400">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">Salaire</p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-green-400">
                             ${stats.totalSalary.toLocaleString()}
                         </p>
                     </div>
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Reste (max {stats.maxWeekly.toLocaleString()}$)</p>
-                        <p className="font-display text-2xl font-bold text-orange-400">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">
+                            <span className="hidden md:inline">Reste (max {stats.maxWeekly.toLocaleString()}$)</span>
+                            <span className="md:hidden">Reste</span>
+                        </p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-orange-400">
                             ${stats.remainingSalary.toLocaleString()}
                         </p>
                     </div>
@@ -220,12 +223,15 @@ export default function ServicesPage() {
             )}
 
             {/* Grille de la semaine */}
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
                 {DAYS.map((day, index) => (
                     <div key={day} className="bg-[#141414] border border-[#2a2a2a] rounded-lg overflow-hidden">
                         {/* Header jour */}
-                        <div className="p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
-                            <span className="font-display font-bold text-sm">{day}</span>
+                        <div className="p-2 md:p-3 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
+                            <span className="font-display font-bold text-xs md:text-sm">
+                                <span className="md:hidden">{day.slice(0, 3)}</span>
+                                <span className="hidden md:inline">{day}</span>
+                            </span>
                             <button
                                 onClick={() => openAddModal(index)}
                                 className="p-1 text-red-400 hover:bg-red-500/20 rounded transition-colors"
@@ -235,14 +241,14 @@ export default function ServicesPage() {
                         </div>
 
                         {/* Services du jour */}
-                        <div className="p-2 min-h-[150px] space-y-2">
+                        <div className="p-2 min-h-[100px] md:min-h-[150px] space-y-2">
                             {servicesByDay[index]?.map(service => (
                                 <div
                                     key={service.id}
                                     className="p-2 bg-red-500/10 border border-red-500/30 rounded text-xs"
                                 >
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-red-400">
+                                        <span className="font-bold text-red-400 text-[11px] md:text-xs">
                                             {formatTime(service.start_time)} - {formatTime(service.end_time)}
                                         </span>
                                         <button
@@ -252,13 +258,13 @@ export default function ServicesPage() {
                                             <Trash2 className="w-3 h-3" />
                                         </button>
                                     </div>
-                                    <div className="flex justify-between text-gray-400">
+                                    <div className="flex justify-between text-gray-400 text-[10px] md:text-xs">
                                         <span>{Math.floor(service.duration_minutes / 60)}h{service.duration_minutes % 60 || ''}</span>
                                         <span className="text-green-400">${service.salary_earned}</span>
                                     </div>
                                 </div>
                             )) || (
-                                    <p className="text-xs text-gray-600 text-center py-4">Aucun service</p>
+                                    <p className="text-[10px] md:text-xs text-gray-600 text-center py-4">Aucun</p>
                                 )}
                         </div>
                     </div>

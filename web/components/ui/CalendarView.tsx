@@ -97,27 +97,27 @@ export function CalendarView({ events, onEventClick, onDayClick, canEdit }: Cale
     return (
         <div className="bg-[#141414] border border-[#2a2a2a] rounded-lg overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
-                <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between p-3 md:p-4 border-b border-[#2a2a2a]">
+                <div className="flex items-center gap-2 md:gap-4">
                     <button
                         onClick={prevMonth}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
+                        className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors"
                     >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
-                    <h2 className="font-display font-bold text-lg min-w-[180px] text-center capitalize">
+                    <h2 className="font-display font-bold text-sm md:text-lg min-w-[120px] md:min-w-[180px] text-center capitalize">
                         {MONTHS[month]} {year}
                     </h2>
                     <button
                         onClick={nextMonth}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
+                        className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors"
                     >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                 </div>
                 <button
                     onClick={goToToday}
-                    className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                    className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
                 >
                     Aujourd'hui
                 </button>
@@ -126,7 +126,7 @@ export function CalendarView({ events, onEventClick, onDayClick, canEdit }: Cale
             {/* Jours de la semaine */}
             <div className="grid grid-cols-7 border-b border-[#2a2a2a]">
                 {DAYS.map(day => (
-                    <div key={day} className="p-2 text-center text-xs text-gray-500 uppercase tracking-wider font-medium">
+                    <div key={day} className="p-1 md:p-2 text-center text-[10px] md:text-xs text-gray-500 uppercase tracking-wider font-medium">
                         {day}
                     </div>
                 ))}
@@ -144,7 +144,7 @@ export function CalendarView({ events, onEventClick, onDayClick, canEdit }: Cale
                                 <div
                                     key={dayIndex}
                                     className={`
-                                        min-h-[100px] p-1 transition-colors
+                                        min-h-[60px] md:min-h-[100px] p-0.5 md:p-1 transition-colors
                                         ${date ? 'hover:bg-white/5 cursor-pointer' : 'bg-black/30'}
                                     `}
                                     onClick={() => date && onDayClick?.(date)}
@@ -152,19 +152,19 @@ export function CalendarView({ events, onEventClick, onDayClick, canEdit }: Cale
                                     {date && (
                                         <>
                                             <div className={`
-                                                w-7 h-7 flex items-center justify-center text-sm mb-1 rounded-full
+                                                w-5 h-5 md:w-7 md:h-7 flex items-center justify-center text-[10px] md:text-sm mb-0.5 md:mb-1 rounded-full mx-auto md:mx-0
                                                 ${today ? 'bg-red-500 text-white font-bold' : 'text-gray-400'}
                                             `}>
                                                 {date.getDate()}
                                             </div>
 
-                                            <div className="space-y-1">
-                                                {dayEvents.slice(0, 3).map(event => (
+                                            <div className="space-y-0.5 md:space-y-1">
+                                                {dayEvents.slice(0, 2).map(event => (
                                                     <motion.div
                                                         key={event.id}
                                                         initial={{ opacity: 0, scale: 0.9 }}
                                                         animate={{ opacity: 1, scale: 1 }}
-                                                        className="text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80"
+                                                        className="text-[8px] md:text-xs px-0.5 md:px-1.5 py-0 md:py-0.5 rounded truncate cursor-pointer hover:opacity-80"
                                                         style={{ backgroundColor: event.color + '30', color: event.color }}
                                                         onClick={(e) => {
                                                             e.stopPropagation()
@@ -172,12 +172,13 @@ export function CalendarView({ events, onEventClick, onDayClick, canEdit }: Cale
                                                         }}
                                                         title={event.title}
                                                     >
-                                                        {event.title}
+                                                        <span className="hidden md:inline">{event.title}</span>
+                                                        <span className="md:hidden">{event.title.slice(0, 3)}...</span>
                                                     </motion.div>
                                                 ))}
-                                                {dayEvents.length > 3 && (
-                                                    <div className="text-xs text-gray-500 px-1">
-                                                        +{dayEvents.length - 3} autres
+                                                {dayEvents.length > 2 && (
+                                                    <div className="text-[8px] md:text-xs text-gray-500 px-0.5 md:px-1">
+                                                        +{dayEvents.length - 2}
                                                     </div>
                                                 )}
                                             </div>

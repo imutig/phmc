@@ -183,31 +183,31 @@ export default function CandidaturesPage() {
     }
 
     return (
-        <div className="p-8">
+        <div className="py-4 md:p-8">
             {/* Header */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex justify-between items-start mb-8"
+                className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6 md:mb-8"
             >
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                        <Users className="w-8 h-8 text-purple-500" />
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight">
+                        <Users className="w-6 md:w-8 h-6 md:h-8 text-purple-500" />
+                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
                             Candidatures
                         </h1>
                     </div>
-                    <p className="text-gray-400 font-sans">
+                    <p className="text-gray-400 font-sans text-sm md:text-base">
                         Gestion des candidatures EMS — {totalCount} dossier{totalCount > 1 ? 's' : ''}
                     </p>
                 </div>
                 <button
                     onClick={() => fetchApplications()}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 md:px-4 py-2 border border-white/10 hover:bg-white/5 transition-colors disabled:opacity-50 text-sm self-start"
                 >
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    Actualiser
+                    <span className="hidden sm:inline">Actualiser</span>
                 </button>
             </motion.div>
 

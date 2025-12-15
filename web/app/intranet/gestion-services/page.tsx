@@ -192,18 +192,18 @@ export default function GestionServicesPage() {
             >
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                        <Users className="w-8 h-8 text-red-500" />
-                        <h1 className="font-display text-3xl font-bold uppercase tracking-tight">
+                        <Users className="w-6 md:w-8 h-6 md:h-8 text-red-500" />
+                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
                             Gestion Services
                         </h1>
                     </div>
-                    <p className="text-gray-400 font-sans">
+                    <p className="text-gray-400 font-sans text-sm md:text-base">
                         Vue d'ensemble des services de tous les employés
                     </p>
                 </div>
                 <a
                     href={`/api/intranet/services/export?week=${week}&year=${year}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors"
+                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors"
                 >
                     <Download className="w-4 h-4" />
                     Export CSV
@@ -238,20 +238,26 @@ export default function GestionServicesPage() {
 
             {/* Stats globales */}
             {totals && (
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Services</p>
-                        <p className="font-display text-2xl font-bold text-white">{totals.totalServices}</p>
+                <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">Services</p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-white">{totals.totalServices}</p>
                     </div>
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Heures totales</p>
-                        <p className="font-display text-2xl font-bold text-blue-400">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">
+                            <span className="hidden md:inline">Heures totales</span>
+                            <span className="md:hidden">Heures</span>
+                        </p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-blue-400">
                             {Math.floor(totals.totalMinutes / 60)}h{totals.totalMinutes % 60 || ''}
                         </p>
                     </div>
-                    <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Masse salariale</p>
-                        <p className="font-display text-2xl font-bold text-green-400">
+                    <div className="p-3 md:p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+                        <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest mb-1">
+                            <span className="hidden md:inline">Masse salariale</span>
+                            <span className="md:hidden">Salaires</span>
+                        </p>
+                        <p className="font-display text-lg md:text-2xl font-bold text-green-400">
                             ${totals.totalSalary.toLocaleString()}
                         </p>
                     </div>
@@ -276,53 +282,55 @@ export default function GestionServicesPage() {
                             className="bg-[#141414] border border-[#2a2a2a] rounded-lg overflow-hidden"
                         >
                             {/* Header employé */}
-                            <div className="p-4 bg-[#1a1a1a] border-b border-[#2a2a2a] flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                    {emp.user_avatar_url ? (
-                                        <img
-                                            src={emp.user_avatar_url}
-                                            alt={emp.user_name}
-                                            className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-[#2a2a2a]"
-                                        />
-                                    ) : (
-                                        <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
-                                            <span className="font-bold text-red-400">
-                                                {emp.user_name.charAt(0).toUpperCase()}
-                                            </span>
+                            <div className="p-3 md:p-4 bg-[#1a1a1a] border-b border-[#2a2a2a]">
+                                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+                                    <div className="flex items-center gap-3">
+                                        {emp.user_avatar_url ? (
+                                            <img
+                                                src={emp.user_avatar_url}
+                                                alt={emp.user_name}
+                                                className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 border-2 border-[#2a2a2a]"
+                                            />
+                                        ) : (
+                                            <div className="w-8 h-8 md:w-10 md:h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                                                <span className="font-bold text-red-400 text-sm">
+                                                    {emp.user_name.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <h3 className="font-display font-bold text-sm md:text-base">{emp.user_name}</h3>
+                                            <p className={`text-xs ${GRADE_DISPLAY[emp.grade_name]?.color || 'text-gray-400'}`}>
+                                                {GRADE_DISPLAY[emp.grade_name]?.name || emp.grade_name}
+                                            </p>
                                         </div>
-                                    )}
-                                    <div>
-                                        <h3 className="font-display font-bold">{emp.user_name}</h3>
-                                        <p className={`text-xs ${GRADE_DISPLAY[emp.grade_name]?.color || 'text-gray-400'}`}>
-                                            {GRADE_DISPLAY[emp.grade_name]?.name || emp.grade_name}
-                                        </p>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <Clock className="w-4 h-4 text-gray-500" />
-                                        <span>{Math.floor(emp.totalMinutes / 60)}h{emp.totalMinutes % 60 || ''}</span>
+                                    <div className="flex items-center gap-3 md:gap-4 ml-11 md:ml-0">
+                                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                                            <Clock className="w-3 h-3 md:w-4 md:h-4 text-gray-500" />
+                                            <span>{Math.floor(emp.totalMinutes / 60)}h{emp.totalMinutes % 60 || ''}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 md:gap-2 text-green-400 text-xs md:text-sm">
+                                            <BadgeDollarSign className="w-3 h-3 md:w-4 md:h-4" />
+                                            <span className="font-bold">${emp.totalSalary.toLocaleString()}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => openAddModal(emp)}
+                                            className="p-1.5 md:p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                                            title="Ajouter un service"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <div className="flex items-center gap-2 text-green-400 text-sm">
-                                        <BadgeDollarSign className="w-4 h-4" />
-                                        <span className="font-bold">${emp.totalSalary.toLocaleString()}</span>
-                                    </div>
-                                    <button
-                                        onClick={() => openAddModal(emp)}
-                                        className="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                                        title="Ajouter un service"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                    </button>
                                 </div>
                             </div>
 
                             {/* Services */}
-                            <div className="p-4">
+                            <div className="p-3 md:p-4">
                                 {emp.services.length === 0 ? (
                                     <p className="text-gray-500 text-sm text-center py-4">Aucun service cette semaine</p>
                                 ) : (
-                                    <div className="grid grid-cols-4 lg:grid-cols-7 gap-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
                                         {emp.services.map(service => (
                                             <div
                                                 key={service.id}
@@ -334,13 +342,13 @@ export default function GestionServicesPage() {
                                                 >
                                                     <Trash2 className="w-3 h-3" />
                                                 </button>
-                                                <div className="text-gray-400 mb-1">
+                                                <div className="text-gray-400 mb-1 text-[10px] md:text-xs">
                                                     {new Date(service.service_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
                                                 </div>
-                                                <div className="font-bold text-white">
+                                                <div className="font-bold text-white text-[11px] md:text-xs">
                                                     {formatTime(service.start_time)}-{formatTime(service.end_time)}
                                                 </div>
-                                                <div className="text-green-400">${service.salary_earned}</div>
+                                                <div className="text-green-400 text-[10px] md:text-xs">${service.salary_earned}</div>
                                             </div>
                                         ))}
                                     </div>
