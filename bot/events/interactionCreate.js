@@ -1,5 +1,14 @@
 const { EmbedBuilder } = require('discord.js');
-const { handleVote, handleStatus, handleAlert, handleDocs, handleCloseChannel } = require('../handlers/buttonHandlers');
+const {
+    handleVote,
+    handleStatus,
+    handleAlert,
+    handleDocs,
+    handleCloseChannel,
+    handleConvocationConfirm,
+    handleConvocationAbsent,
+    handleConvocationAbsenceModal
+} = require('../handlers/buttonHandlers');
 const log = require('../utils/logger');
 
 module.exports = {
@@ -43,6 +52,13 @@ module.exports = {
         // Gestion des boutons
         if (interaction.isButton()) {
             await handleButtonInteraction(interaction, supabase);
+            return;
+        }
+
+        // Gestion des modals
+        if (interaction.isModalSubmit()) {
+            await handleModalInteraction(interaction, supabase);
+            return;
         }
     }
 };
@@ -104,6 +120,21 @@ async function handleButtonInteraction(interaction, supabase) {
             return;
         }
 
+        // Convocation buttons
+        if (customId.startsWith('convocation_confirm_')) {
+            const parts = customId.split('_');
+            const targetUserId = parts[2];
+            await handleConvocationConfirm(interaction, targetUserId);
+            return;
+        }
+
+        if (customId.startsWith('convocation_absent_')) {
+            const parts = customId.split('_');
+            const targetUserId = parts[2];
+            await handleConvocationAbsent(interaction, targetUserId);
+            return;
+        }
+
     } catch (error) {
         log.error(`Erreur bouton ${customId}: ${error.message}`);
 
@@ -119,3 +150,30 @@ async function handleButtonInteraction(interaction, supabase) {
         }
     }
 }
+
+async function handleModalInteraction(interaction, supabase) {
+    const customId = interaction.customId;
+
+    try {
+        // Convocation absence modal
+        if (customId.startsWith('convocation_absence_modal_')) {
+            await handleConvocationAbsenceModal(interaction);
+            return;
+        }
+
+    } catch (error) {
+        log.error(`Erreur modal ${customId}: ${error.message}`);
+
+        try {
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: '❌ Une erreur est survenue.',
+                    flags: 64
+                });
+            }
+        } catch (replyError) {
+            log.error(`Erreur reply modal: ${replyError.message}`);
+        }
+    }
+}
+

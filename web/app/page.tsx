@@ -6,6 +6,7 @@ import { ChevronDown, Heart, Clock, Users, GraduationCap, LayoutDashboard, LogOu
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRef, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { SnowEffect } from "@/components/ui/SnowEffect";
 
 // Animation variants
 const fadeInUp = {
@@ -60,6 +61,7 @@ function HomeContent() {
 
   return (
     <>
+      <SnowEffect />
       <Suspense fallback={null}>
         <SearchParamsHandler onAccessDenied={() => setShowAccessDenied(true)} />
       </Suspense>
