@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Sidebar } from "@/components/intranet/Sidebar"
 import { IntranetClientWrapper } from "@/components/intranet/ClientWrapper"
 import { EMS_GRADES } from "@/lib/auth-utils"
+import { SnowEffect } from "@/components/ui/SnowEffect"
 
 // Grades EMS valides pour accéder à l'intranet
 const VALID_INTRANET_ROLES = [...EMS_GRADES, 'recruiter']
@@ -30,6 +31,7 @@ export default async function IntranetLayout({
 
     return (
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
+            <SnowEffect />
             <Sidebar userRoles={userRoles} />
 
             <main className="ml-0 md:ml-[280px] min-h-screen pt-14 md:pt-0">
