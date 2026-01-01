@@ -13,9 +13,9 @@ import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
 
 // Types
 interface UserProfile {
-    discord_id: string
-    display_name: string
-    avatar_url?: string
+    discordId: string
+    displayName: string
+    avatarUrl?: string
     gradeName: string
     roles: string[]
 }
@@ -434,9 +434,9 @@ export default function IntranetPage() {
                 className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
             >
                 <div className="flex items-center gap-4">
-                    {profile?.avatar_url ? (
+                    {profile?.avatarUrl ? (
                         <img
-                            src={profile.avatar_url}
+                            src={profile.avatarUrl}
                             alt=""
                             className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-red-500/50"
                         />
@@ -447,7 +447,7 @@ export default function IntranetPage() {
                     )}
                     <div>
                         <h1 className="font-display text-2xl md:text-3xl font-bold text-white">
-                            Bienvenue{profile?.display_name ? `, ${profile.display_name.split(' ')[0]}` : ''} !
+                            Bienvenue{profile?.displayName ? `, ${profile.displayName.split(' ')[0]}` : ''} !
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
                             {loading ? (
@@ -464,7 +464,7 @@ export default function IntranetPage() {
             </motion.div>
 
             {/* Stats utilisateur */}
-            {profile && <UserStatsWidget userDiscordId={profile.discord_id} />}
+            {profile && <UserStatsWidget userDiscordId={profile.discordId} />}
 
             {/* Actions rapides */}
             <motion.div
