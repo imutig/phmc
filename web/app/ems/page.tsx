@@ -6,6 +6,8 @@ import { HeartPulse, Stethoscope, Users, ArrowLeft, ChevronRight, Ambulance, Hea
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { TextReveal } from "@/components/ui/TextReveal";
+import { MagneticButton, MagneticCard } from "@/components/ui/MagneticButton";
 
 export default function EMSPage() {
     const router = useRouter();
@@ -114,6 +116,15 @@ export default function EMSPage() {
                                 </motion.div>
                             ))}
                         </div>
+                    </div>
+                </section>
+
+                {/* Text Reveal Quote */}
+                <section className="py-24 px-6 bg-[#050505]">
+                    <div className="max-w-3xl mx-auto text-center">
+                        <TextReveal className="font-display text-2xl md:text-4xl font-bold uppercase tracking-tighter leading-tight">
+                            Chaque intervention est une opportunité de faire la différence dans la vie de quelqu'un.
+                        </TextReveal>
                     </div>
                 </section>
 

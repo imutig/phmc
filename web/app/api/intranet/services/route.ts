@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { requireEmployeeAccess, getPrimaryGrade, checkDiscordRoles } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { getISOWeekAndYear } from "@/lib/date-utils"
 
 // Salaires par grade (fallback)
 const GRADE_SALARIES: Record<string, number> = {
@@ -38,8 +39,9 @@ export async function GET(request: Request) {
 
     // Semaine ISO courante par défaut
     const now = new Date()
-    const week = weekParam ? parseInt(weekParam) : getISOWeek(now)
-    const year = yearParam ? parseInt(yearParam) : now.getFullYear()
+    const { week: currentWeek, year: currentYear } = getISOWeekAndYear(now)
+    const week = weekParam ? parseInt(weekParam) : currentWeek
+    const year = yearParam ? parseInt(yearParam) : currentYear
 
     const supabase = await createClient()
 
@@ -134,8 +136,7 @@ export async function POST(request: Request) {
     const salaryEarned = slotsCount * salaryPer15min
 
     // Semaine ISO et date du service
-    const week = getISOWeek(startDate)
-    const year = startDate.getFullYear()
+    const { week, year } = getISOWeekAndYear(startDate)
     const serviceDate = startDate.toISOString().split('T')[0]
 
     const supabase = await createClient()
@@ -164,13 +165,4 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(data, { status: 201 })
-}
-
-// Helper : Calcul semaine ISO
-function getISOWeek(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-    const dayNum = d.getUTCDay() || 7
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
 }

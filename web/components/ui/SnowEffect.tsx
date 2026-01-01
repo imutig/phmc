@@ -1,45 +1,37 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import styles from "./SnowEffect.module.css"
+import { useEffect, useState } from "react";
+import styles from "./SnowEffect.module.css";
 
 export function SnowEffect() {
-    const [enabled, setEnabled] = useState(false)
+    const [snowflakes, setSnowflakes] = useState<Array<{ id: number; left: number; delay: number; duration: number; size: number }>>([]);
 
     useEffect(() => {
-        const isChristmas = process.env.NEXT_PUBLIC_ENABLE_CHRISTMAS_THEME === "true"
-        setEnabled(isChristmas)
-    }, [])
-
-    if (!enabled) return null
-
-    // Generate random snowflakes
-    const snowflakes = Array.from({ length: 50 }).map((_, i) => {
-        const left = Math.random() * 100 + "%"
-        const animationDuration = Math.random() * 3 + 5 + "s" // 5-8s
-        const animationDelay = Math.random() * 5 + "s"
-        const opacity = Math.random() * 0.5 + 0.3
-        const size = Math.random() * 5 + 3 + "px"
-
-        return (
-            <div
-                key={i}
-                className={styles.snowflake}
-                style={{
-                    left,
-                    animationDuration,
-                    animationDelay,
-                    opacity,
-                    width: size,
-                    height: size,
-                }}
-            />
-        )
-    })
+        const flakes = Array.from({ length: 50 }, (_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            delay: Math.random() * 5,
+            duration: 5 + Math.random() * 10,
+            size: 2 + Math.random() * 4,
+        }));
+        setSnowflakes(flakes);
+    }, []);
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">
-            {snowflakes}
+        <div className={styles.snowContainer}>
+            {snowflakes.map((flake) => (
+                <div
+                    key={flake.id}
+                    className={styles.snowflake}
+                    style={{
+                        left: `${flake.left}%`,
+                        animationDelay: `${flake.delay}s`,
+                        animationDuration: `${flake.duration}s`,
+                        width: `${flake.size}px`,
+                        height: `${flake.size}px`,
+                    }}
+                />
+            ))}
         </div>
-    )
+    );
 }

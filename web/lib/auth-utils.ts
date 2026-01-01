@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { auth } from "@/lib/auth"
+import { getDefaultPermissionsForGrade, GradeType, ALL_PERMISSIONS } from "@/lib/permissions"
 
 // Grades EMS : direction, chirurgien, medecin, infirmier, ambulancier + recruiter/candidate
 export type RoleType = 'direction' | 'chirurgien' | 'medecin' | 'infirmier' | 'ambulancier' | 'recruiter' | 'candidate'
@@ -23,6 +24,10 @@ const CACHE_DURATION = 15 * 60 * 1000 // 15 minutes
 // Cache des configurations de rôles (15 minutes)
 let roleConfigCache: { data: { role_type: string; discord_role_id: string }[]; expiry: number } | null = null
 const CONFIG_CACHE_DURATION = 15 * 60 * 1000
+
+// Cache des permissions par grade (5 minutes)
+let permissionsCache: { data: Record<string, Record<string, boolean>>; expiry: number } | null = null
+const PERMISSIONS_CACHE_DURATION = 5 * 60 * 1000
 
 /**
  * Récupère la configuration des rôles depuis Supabase (avec cache)
@@ -185,6 +190,7 @@ export function hasRole(userRoles: RoleType[], requiredRoles: RoleType[]): boole
 
 /**
  * Vérifie l'accès à une ressource selon les rôles requis
+ * Utilise les rôles stockés en session (définis à la connexion)
  */
 export async function requireRoles(requiredRoles: RoleType[]) {
     const session = await auth()
@@ -193,16 +199,13 @@ export async function requireRoles(requiredRoles: RoleType[]) {
         return { authorized: false, error: "Non authentifié.", status: 401, session: null, roles: [] as RoleType[] }
     }
 
-    if (!session.accessToken) {
-        return { authorized: false, error: "Token Discord expiré.", status: 401, session: null, roles: [] as RoleType[] }
-    }
-
-    const { roles, error } = await checkDiscordRoles(session.accessToken)
+    // Utiliser les rôles stockés dans la session (définis à la connexion)
+    const roles = (session.user.roles || []) as RoleType[]
 
     if (!hasRole(roles, requiredRoles)) {
         return {
             authorized: false,
-            error: error || "Accès non autorisé.",
+            error: "Accès non autorisé.",
             status: 403,
             session,
             roles
@@ -251,3 +254,95 @@ export function invalidateRoleConfigCache() {
     roleConfigCache = null
 }
 
+/**
+ * Récupère toutes les permissions depuis la DB (avec cache)
+ */
+async function getPermissionsMap(): Promise<Record<string, Record<string, boolean>>> {
+    if (permissionsCache && permissionsCache.expiry > Date.now()) {
+        return permissionsCache.data
+    }
+
+    const supabase = await createClient()
+    const { data: dbPermissions } = await supabase
+        .from('grade_permissions')
+        .select('grade, permission_key, granted')
+
+    const result: Record<string, Record<string, boolean>> = {}
+
+    // Initialiser avec les permissions par défaut
+    const grades: GradeType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+    for (const grade of grades) {
+        result[grade] = getDefaultPermissionsForGrade(grade)
+    }
+
+    // Appliquer les surcharges de la DB
+    if (dbPermissions) {
+        for (const row of dbPermissions) {
+            if (!result[row.grade]) result[row.grade] = {}
+            result[row.grade][row.permission_key] = row.granted
+        }
+    }
+
+    // Direction a toujours tout
+    for (const perm of ALL_PERMISSIONS) {
+        if (!result['direction']) result['direction'] = {}
+        result['direction'][perm.key] = true
+    }
+
+    permissionsCache = { data: result, expiry: Date.now() + PERMISSIONS_CACHE_DURATION }
+    return result
+}
+
+/**
+ * Vérifie si un utilisateur a une permission spécifique
+ */
+export async function checkPermission(userRoles: RoleType[], permissionKey: string): Promise<boolean> {
+    // Direction a toujours tout
+    if (userRoles.includes('direction')) return true
+
+    // Trouver le grade principal
+    const primaryGrade = getPrimaryGrade(userRoles)
+    if (!primaryGrade) return false
+
+    // Récupérer la map des permissions
+    const permissionsMap = await getPermissionsMap()
+
+    // Vérifier la permission pour ce grade
+    return permissionsMap[primaryGrade]?.[permissionKey] ?? false
+}
+
+/**
+ * Middleware pour vérifier une permission
+ * Utilise les rôles stockés en session (définis à la connexion)
+ */
+export async function requirePermission(permissionKey: string) {
+    const session = await auth()
+
+    if (!session?.user?.discord_id) {
+        return { authorized: false, error: "Non authentifié.", status: 401, session: null, roles: [] as RoleType[] }
+    }
+
+    // Utiliser les rôles stockés dans la session
+    const roles = (session.user.roles || []) as RoleType[]
+
+    const hasPerm = await checkPermission(roles, permissionKey)
+
+    if (!hasPerm) {
+        return {
+            authorized: false,
+            error: "Permission insuffisante.",
+            status: 403,
+            session,
+            roles
+        }
+    }
+
+    return { authorized: true, session, roles }
+}
+
+/**
+ * Invalidate le cache des permissions
+ */
+export function invalidatePermissionsCache() {
+    permissionsCache = null
+}

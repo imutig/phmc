@@ -1,4 +1,4 @@
-# Secrétaire Spades - Monorepo
+# PHMC - Monorepo
 
 # === Dependencies ===
 node_modules/
@@ -34,3 +34,7 @@ out/
 *.pem
 .vercel
 .agent
+.turbo
+
+# === Gemini/Claude artifacts ===
+.gemini/
