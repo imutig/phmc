@@ -48,20 +48,22 @@ export async function GET(request: Request) {
         s.salary_earned
     ])
 
-    // Ajouter les totaux par employé
-    const byEmployee: Record<string, { minutes: number, salary: number }> = {}
+    // Ajouter les totaux par employé (groupé par user_discord_id pour la persistance)
+    const byEmployee: Record<string, { name: string, minutes: number, salary: number }> = {}
     for (const s of services || []) {
-        if (!byEmployee[s.user_name]) {
-            byEmployee[s.user_name] = { minutes: 0, salary: 0 }
+        if (!byEmployee[s.user_discord_id]) {
+            byEmployee[s.user_discord_id] = { name: s.user_name, minutes: 0, salary: 0 }
         }
-        byEmployee[s.user_name].minutes += s.duration_minutes
-        byEmployee[s.user_name].salary += s.salary_earned
+        // Toujours mettre à jour le nom (au cas où il a changé)
+        byEmployee[s.user_discord_id].name = s.user_name
+        byEmployee[s.user_discord_id].minutes += s.duration_minutes
+        byEmployee[s.user_discord_id].salary += s.salary_earned
     }
 
     rows.push([]) // Ligne vide
     rows.push(['--- RÉCAPITULATIF ---'])
-    for (const [name, totals] of Object.entries(byEmployee)) {
-        rows.push([name, '', '', '', '', totals.minutes, totals.salary])
+    for (const [, totals] of Object.entries(byEmployee)) {
+        rows.push([totals.name, '', '', '', '', totals.minutes, totals.salary])
     }
 
     // Total général
