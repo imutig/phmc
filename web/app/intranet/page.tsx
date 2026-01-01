@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
     HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield, Loader2,
     Calendar, MapPin, Clock, Play, Square, ChevronRight, Activity, Timer, Wallet,
-    FileEdit, Search, BookOpen
+    FileEdit, BookOpen
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -195,8 +195,8 @@ function UserStatsWidget({ userDiscordId }: { userDiscordId: string }) {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className={`p-4 rounded-lg border ${liveService
-                        ? 'bg-green-500/10 border-green-500/30'
-                        : 'bg-[#141414] border-[#2a2a2a]'
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-[#141414] border-[#2a2a2a]'
                     }`}
             >
                 <div className="flex items-center gap-2 mb-2">
@@ -447,30 +447,19 @@ export default function IntranetPage() {
                     )}
                     <div>
                         <h1 className="font-display text-2xl md:text-3xl font-bold text-white">
-                            Bienvenue, {profile?.display_name?.split(' ')[0] || 'Chargement...'}
+                            Bienvenue{profile?.display_name ? `, ${profile.display_name.split(' ')[0]}` : ''} !
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
                             {loading ? (
                                 <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-                            ) : (
-                                <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-xs font-bold ${roleColors[profile?.gradeName || "Visiteur"]}`}>
+                            ) : profile?.gradeName ? (
+                                <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-xs font-bold ${roleColors[profile.gradeName] || roleColors["Visiteur"]}`}>
                                     <Shield className="w-3 h-3" />
-                                    {profile?.gradeName || "Visiteur"}
+                                    {profile.gradeName}
                                 </span>
-                            )}
+                            ) : null}
                         </div>
                     </div>
-                </div>
-
-                {/* Bouton recherche */}
-                <button
-                    onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-gray-400 hover:text-white hover:border-red-500/30 transition-colors"
-                >
-                    <Search className="w-4 h-4" />
-                    <span className="text-sm">Rechercher...</span>
-                    <span className="text-xs bg-[#2a2a2a] px-1.5 py-0.5 rounded">⌘K</span>
-                </button>
             </motion.div>
 
             {/* Stats utilisateur */}
