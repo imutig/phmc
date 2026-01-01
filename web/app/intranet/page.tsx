@@ -460,6 +460,7 @@ export default function IntranetPage() {
                             ) : null}
                         </div>
                     </div>
+                </div>
             </motion.div>
 
             {/* Stats utilisateur */}
