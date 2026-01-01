@@ -1,20 +1,36 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+    SlashCommandBuilder,
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    ButtonBuilder,
+    ActionRowBuilder,
+    MessageFlags,
+    ButtonStyle
+} = require('discord.js');
 
 const GRADE_SALARIES = {
-    direction: 1100,
-    chirurgien: 1000,
-    medecin: 900,
-    infirmier: 700,
-    ambulancier: 625
+    direction: { perSlot: 1100, maxWeekly: 150000 },
+    chirurgien: { perSlot: 1000, maxWeekly: 120000 },
+    medecin: { perSlot: 900, maxWeekly: 100000 },
+    infirmier: { perSlot: 700, maxWeekly: 85000 },
+    ambulancier: { perSlot: 625, maxWeekly: 80000 }
 };
 
-// Grille des grades dans l'ordre hiérarchique
 const GRADE_ORDER = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier'];
+
+const GRADE_DISPLAY = {
+    direction: { name: 'Direction', emoji: '👑', color: 0xDC2626 },
+    chirurgien: { name: 'Chirurgien', emoji: '🔬', color: 0xA855F7 },
+    medecin: { name: 'Médecin', emoji: '⚕️', color: 0x3B82F6 },
+    infirmier: { name: 'Infirmier', emoji: '💉', color: 0x22C55E },
+    ambulancier: { name: 'Ambulancier', emoji: '🚑', color: 0xF97316 }
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('service')
-        .setDescription('Gestion des services EMS')
+        .setDescription('Gestion de vos services EMS')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('ajouter')
@@ -37,8 +53,8 @@ module.exports = {
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('liste')
-                .setDescription('Voir vos services de la semaine')
+                .setName('voir')
+                .setDescription('Voir vos services et statistiques de la semaine')
         )
         .addSubcommand(subcommand =>
             subcommand
@@ -52,15 +68,24 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        const supabase = interaction.supabase;
-        const subcommand = interaction.options.getSubcommand();
+        try {
+            const supabase = interaction.supabase;
+            const subcommand = interaction.options.getSubcommand();
 
-        if (subcommand === 'ajouter') {
-            await handleAddService(interaction, supabase);
-        } else if (subcommand === 'liste') {
-            await handleListServices(interaction, supabase);
-        } else if (subcommand === 'supprimer') {
-            await handleDeleteService(interaction, supabase);
+            if (subcommand === 'ajouter') {
+                await handleAddService(interaction, supabase);
+            } else if (subcommand === 'voir') {
+                await handleViewServices(interaction, supabase);
+            } else if (subcommand === 'supprimer') {
+                await handleDeleteService(interaction, supabase);
+            }
+        } catch (error) {
+            console.error('Erreur commande service:', error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ content: '❌ Une erreur est survenue: ' + error.message });
+            } else {
+                await interaction.reply({ content: '❌ Une erreur est survenue: ' + error.message, flags: 64 });
+            }
         }
     }
 };
@@ -77,7 +102,7 @@ async function handleAddService(interaction, supabase) {
     const finMatch = finStr.match(/^(\d{1,2}):(\d{2})$/);
 
     if (!debutMatch || !finMatch) {
-        return interaction.editReply('❌ Format d\'heure invalide. Utilisez HH:MM (ex: 14:30)');
+        return interaction.editReply({ content: '❌ Format d\'heure invalide. Utilisez HH:MM (ex: 14:30)' });
     }
 
     const debutHour = parseInt(debutMatch[1]);
@@ -87,7 +112,7 @@ async function handleAddService(interaction, supabase) {
 
     // Valider les minutes (par tranche de 15)
     if (debutMin % 15 !== 0 || finMin % 15 !== 0) {
-        return interaction.editReply('❌ Les minutes doivent être sur des tranches de 15 (:00, :15, :30, :45)');
+        return interaction.editReply({ content: '❌ Les minutes doivent être sur des tranches de 15 (:00, :15, :30, :45)' });
     }
 
     // Parser la date
@@ -97,7 +122,7 @@ async function handleAddService(interaction, supabase) {
         if (dateMatch) {
             serviceDate = new Date(dateMatch[3], dateMatch[2] - 1, dateMatch[1]);
         } else {
-            return interaction.editReply('❌ Format de date invalide. Utilisez JJ/MM/AAAA');
+            return interaction.editReply({ content: '❌ Format de date invalide. Utilisez JJ/MM/AAAA' });
         }
     }
 
@@ -118,7 +143,7 @@ async function handleAddService(interaction, supabase) {
     const durationMinutes = Math.floor(durationMs / (1000 * 60));
 
     if (durationMinutes < 15) {
-        return interaction.editReply('❌ Service minimum de 15 minutes');
+        return interaction.editReply({ content: '❌ Service minimum de 15 minutes' });
     }
 
     // Trouver le grade de l'utilisateur
@@ -136,13 +161,13 @@ async function handleAddService(interaction, supabase) {
     }
 
     if (!userGrade) {
-        return interaction.editReply('❌ Aucun grade EMS trouvé. Contactez la direction.');
+        return interaction.editReply({ content: '❌ Aucun grade EMS trouvé. Contactez la direction.' });
     }
 
     // Calcul salaire
     const slotsCount = Math.floor(durationMinutes / 15);
-    const salaryPer15min = GRADE_SALARIES[userGrade] || 625;
-    const salaryEarned = slotsCount * salaryPer15min;
+    const salaryInfo = GRADE_SALARIES[userGrade];
+    const salaryEarned = slotsCount * salaryInfo.perSlot;
 
     // Semaine ISO
     const week = getISOWeek(startTime);
@@ -169,69 +194,147 @@ async function handleAddService(interaction, supabase) {
 
     if (error) {
         console.error('Erreur service:', error);
-        return interaction.editReply('❌ Erreur lors de l\'enregistrement: ' + error.message);
+        return interaction.editReply({ content: '❌ Erreur lors de l\'enregistrement: ' + error.message });
     }
 
-    const embed = new EmbedBuilder()
-        .setColor(0x22C55E)
-        .setTitle('✅ Service Enregistré')
-        .addFields(
-            { name: '📅 Date', value: startTime.toLocaleDateString('fr-FR'), inline: true },
-            { name: '⏰ Horaires', value: `${debutStr} → ${finStr}`, inline: true },
-            { name: '⏱️ Durée', value: `${Math.floor(durationMinutes / 60)}h${durationMinutes % 60 > 0 ? (durationMinutes % 60) + 'm' : ''}`, inline: true },
-            { name: '💰 Salaire', value: `$${salaryEarned.toLocaleString()}`, inline: true },
-            { name: '📋 Grade', value: userGrade.charAt(0).toUpperCase() + userGrade.slice(1), inline: true }
-        )
-        .setFooter({ text: `ID: ${data.id.substring(0, 8)}` })
-        .setTimestamp();
+    const gradeInfo = GRADE_DISPLAY[userGrade];
+    const formatHours = (mins) => {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `${h}h${m}m` : `${h}h`;
+    };
 
-    await interaction.editReply({ embeds: [embed] });
+    // Container Components V2
+    const container = new ContainerBuilder()
+        .setAccentColor(0x22C55E)
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# ✅ Service Enregistré`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`📅 **Date:** ${startTime.toLocaleDateString('fr-FR')} • ⏰ **Horaires:** ${debutStr} → ${finStr}`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`⏱️ **Durée:** ${formatHours(durationMinutes)} • ${gradeInfo.emoji} **Grade:** ${gradeInfo.name}`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`💰 **Salaire:** $${salaryEarned.toLocaleString()} • 📋 **ID:** \`${data?.id?.substring(0, 8) || 'N/A'}\``))
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(false));
+
+    const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('service_view_week')
+            .setLabel('Voir mes services')
+            .setEmoji('📊')
+            .setStyle(ButtonStyle.Primary)
+    );
+    container.addActionRowComponents(actionRow);
+
+    await interaction.editReply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+    });
 }
 
-async function handleListServices(interaction, supabase) {
+async function handleViewServices(interaction, supabase) {
     await interaction.deferReply({ flags: 64 });
 
-    // Semaine courante
     const now = new Date();
     const week = getISOWeek(now);
     const year = now.getFullYear();
 
+    // Récupérer les services de la semaine
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
         .eq('user_discord_id', interaction.user.id)
         .eq('week_number', week)
         .eq('year', year)
+        .not('end_time', 'is', null)
         .order('start_time', { ascending: true });
 
     if (error) {
-        return interaction.editReply('❌ Erreur: ' + error.message);
+        return interaction.editReply({ content: '❌ Erreur: ' + error.message });
     }
 
-    if (!services || services.length === 0) {
-        return interaction.editReply('📭 Aucun service enregistré cette semaine.');
+    // Trouver le grade
+    const { data: roleConfigs } = await supabase
+        .from('discord_roles')
+        .select('role_type, discord_role_id');
+
+    let userGrade = 'ambulancier';
+    for (const grade of GRADE_ORDER) {
+        const config = roleConfigs?.find(r => r.role_type === grade);
+        if (config && interaction.member.roles.cache.has(config.discord_role_id)) {
+            userGrade = grade;
+            break;
+        }
     }
+
+    const gradeInfo = GRADE_DISPLAY[userGrade];
+    const salaryInfo = GRADE_SALARIES[userGrade];
 
     // Calculs
-    const totalMinutes = services.reduce((sum, s) => sum + s.duration_minutes, 0);
-    const totalSalary = services.reduce((sum, s) => sum + s.salary_earned, 0);
+    const totalMinutes = services?.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) || 0;
+    const totalSalary = services?.reduce((sum, s) => sum + (s.salary_earned || 0), 0) || 0;
+    const remainingSalary = Math.max(0, salaryInfo.maxWeekly - totalSalary);
 
-    const embed = new EmbedBuilder()
-        .setColor(0x3B82F6)
-        .setTitle(`📋 Vos Services - Semaine ${week}`)
-        .setDescription(services.map(s => {
-            const start = new Date(s.start_time);
-            const end = new Date(s.end_time);
-            return `• **${start.toLocaleDateString('fr-FR')}** : ${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → ${end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} ($${s.salary_earned.toLocaleString()})`;
-        }).join('\n'))
-        .addFields(
-            { name: '⏱️ Total heures', value: `${Math.floor(totalMinutes / 60)}h${totalMinutes % 60 > 0 ? (totalMinutes % 60) + 'm' : ''}`, inline: true },
-            { name: '💰 Total salaire', value: `$${totalSalary.toLocaleString()}`, inline: true }
-        )
-        .setFooter({ text: 'Pillbox Hill Medical Center' })
-        .setTimestamp();
+    const formatHours = (mins) => {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `${h}h${m}m` : `${h}h`;
+    };
 
-    await interaction.editReply({ embeds: [embed] });
+    // Container Components V2
+    const container = new ContainerBuilder()
+        .setAccentColor(gradeInfo.color)
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# 📊 Mes Services - Semaine ${week}`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`${gradeInfo.emoji} **Grade:** ${gradeInfo.name} • 💵 **Salaire/15min:** $${salaryInfo.perSlot.toLocaleString()}`))
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 📈 Récapitulatif`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`⏱️ **Heures:** ${formatHours(totalMinutes)} • 💰 **Salaire:** $${totalSalary.toLocaleString()} • 📊 **Reste:** $${remainingSalary.toLocaleString()}`));
+
+    // Liste des services
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+
+    if (!services || services.length === 0) {
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`📭 *Aucun service enregistré cette semaine.*\n\nUtilisez \`/service ajouter\` pour enregistrer un service.`)
+        );
+    } else {
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 📋 Détail (${services.length} services)`));
+
+        const displayServices = services.slice(-5);
+        for (const service of displayServices) {
+            const start = new Date(service.start_time);
+            const end = new Date(service.end_time);
+            const dateStr = start.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+            const timeStr = `${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} → ${end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`• **${dateStr}** | ${timeStr} | $${(service.salary_earned || 0).toLocaleString()} | \`${service.id?.substring(0, 6) || 'N/A'}\``)
+            );
+        }
+
+        if (services.length > 5) {
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`-# ... et ${services.length - 5} autres services`)
+            );
+        }
+    }
+
+    // Boutons
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(false));
+    const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('service_add_quick')
+            .setLabel('Ajouter un service')
+            .setEmoji('➕')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId('service_refresh')
+            .setLabel('Actualiser')
+            .setEmoji('🔄')
+            .setStyle(ButtonStyle.Secondary)
+    );
+    container.addActionRowComponents(actionRow);
+
+    await interaction.editReply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+    });
 }
 
 async function handleDeleteService(interaction, supabase) {
@@ -243,11 +346,11 @@ async function handleDeleteService(interaction, supabase) {
     const { data: service } = await supabase
         .from('services')
         .select('*')
-        .eq('id', serviceId)
+        .or(`id.eq.${serviceId},id.ilike.${serviceId}%`)
         .single();
 
     if (!service) {
-        return interaction.editReply('❌ Service introuvable.');
+        return interaction.editReply({ content: '❌ Service introuvable.' });
     }
 
     if (service.user_discord_id !== interaction.user.id) {
@@ -262,20 +365,30 @@ async function handleDeleteService(interaction, supabase) {
         const isAdmin = adminRoleId && interaction.member.roles.cache.has(adminRoleId);
 
         if (!isAdmin) {
-            return interaction.editReply('❌ Vous ne pouvez supprimer que vos propres services.');
+            return interaction.editReply({ content: '❌ Vous ne pouvez supprimer que vos propres services.' });
         }
     }
 
     const { error } = await supabase
         .from('services')
         .delete()
-        .eq('id', serviceId);
+        .eq('id', service.id);
 
     if (error) {
-        return interaction.editReply('❌ Erreur: ' + error.message);
+        return interaction.editReply({ content: '❌ Erreur: ' + error.message });
     }
 
-    await interaction.editReply('✅ Service supprimé.');
+    // Container Components V2
+    const container = new ContainerBuilder()
+        .setAccentColor(0xEF4444)
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`# 🗑️ Service Supprimé`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`Le service du **${new Date(service.start_time).toLocaleDateString('fr-FR')}** a été supprimé.`))
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# Salaire annulé: $${(service.salary_earned || 0).toLocaleString()}`));
+
+    await interaction.editReply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2
+    });
 }
 
 function getISOWeek(date) {

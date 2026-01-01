@@ -6,6 +6,7 @@ const path = require('node:path');
 const { createApplicationChannel, sendApplicationReceivedDM } = require('./services/applicationService');
 const { createApiServer } = require('./api/server');
 const log = require('./utils/logger');
+const equipeCommand = require('./commands/equipe');
 
 // Configuration
 const client = new Client({
@@ -61,6 +62,7 @@ for (const file of eventFiles) {
         registerCommands,
         checkConfiguration,
         setupRealtimeListener,
+        setupLiveServicesListener,
         checkNewApplications,
         startApiServer
     };
@@ -177,6 +179,42 @@ function setupRealtimeListener() {
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
                 log.success('Realtime actif - En attente de candidatures');
+            }
+        });
+
+    return channel;
+}
+
+function setupLiveServicesListener() {
+    log.section('Live Services');
+
+    const channel = supabase
+        .channel('live-services-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'services'
+            },
+            async (payload) => {
+                // On met à jour si :
+                // - Nouveau service (INSERT)
+                // - Fin de service (UPDATE avec end_time qui change)
+                // - Service supprimé/annulé (DELETE)
+                if (payload.eventType === 'INSERT' ||
+                    payload.eventType === 'DELETE' ||
+                    (payload.eventType === 'UPDATE' && payload.new.end_time !== payload.old?.end_time)) {
+
+                    log.realtime(`Service update: ${payload.eventType}`);
+                    // Mettre à jour tous les messages /equipe
+                    await equipeCommand.updateLiveMessages();
+                }
+            }
+        )
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                log.success('Live services listener actif');
             }
         });
 
