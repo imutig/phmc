@@ -493,34 +493,6 @@ export default function IntranetPage() {
                 {/* Prochain événement */}
                 <NextEventWidget />
             </div>
-
-            {/* Rappels */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
-            >
-                <div className="flex items-center gap-3 mb-4">
-                    <TrendingUp className="w-5 h-5 text-red-600" />
-                    <h2 className="font-display font-bold uppercase text-lg text-white">Rappels Importants</h2>
-                </div>
-
-                <ul className="space-y-3">
-                    <li className="flex gap-3 text-sm text-gray-400">
-                        <span className="text-red-600">•</span>
-                        Effectuez vos rapports de service à la fin de chaque prise de service.
-                    </li>
-                    <li className="flex gap-3 text-sm text-gray-400">
-                        <span className="text-red-600">•</span>
-                        La facturation doit être systématique pour tout acte médical.
-                    </li>
-                    <li className="flex gap-3 text-sm text-gray-400">
-                        <span className="text-red-600">•</span>
-                        Consultez le règlement régulièrement pour les mises à jour.
-                    </li>
-                </ul>
-            </motion.div>
         </div>
     )
 }
