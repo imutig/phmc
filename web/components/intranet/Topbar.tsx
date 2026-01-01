@@ -1,0 +1,79 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Search, Menu } from "lucide-react"
+import Image from "next/image"
+import { GlobalSearch } from "@/components/ui/GlobalSearch"
+import { ServiceButton } from "./ServiceButton"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+
+interface TopbarProps {
+    userDiscordId: string
+    userName: string
+    gradeName: string
+    avatarUrl?: string | null
+    onMenuClick?: () => void
+}
+
+export function Topbar({ userDiscordId, userName, gradeName, avatarUrl, onMenuClick }: TopbarProps) {
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+    // Raccourci Ctrl+K pour ouvrir la recherche
+    useKeyboardShortcuts({
+        shortcuts: [
+            { key: 'k', ctrlKey: true, action: () => setIsSearchOpen(true) }
+        ]
+    })
+
+    return (
+        <>
+            <header className="fixed top-0 right-0 left-0 md:left-[280px] h-16 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#2a2a2a]">
+                <div className="h-full px-4 md:px-6 flex items-center justify-between gap-4">
+                    {/* Mobile menu button */}
+                    <button
+                        onClick={onMenuClick}
+                        className="md:hidden p-2 -ml-2 text-gray-400 hover:text-white"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+
+                    {/* Mobile logo */}
+                    <div className="md:hidden flex items-center">
+                        <Image
+                            src="/logo_phmc.webp"
+                            alt="PHMC"
+                            width={32}
+                            height={32}
+                        />
+                    </div>
+
+                    {/* Barre de recherche */}
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className="flex-1 max-w-md flex items-center gap-3 px-4 py-2 rounded-lg bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors border border-white/10"
+                    >
+                        <Search className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm hidden sm:inline">Rechercher...</span>
+                        <kbd className="ml-auto text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-500 hidden sm:inline">
+                            Ctrl+K
+                        </kbd>
+                    </button>
+
+                    {/* Spacer */}
+                    <div className="flex-1 hidden md:block" />
+
+                    {/* Bouton de prise de service */}
+                    <ServiceButton
+                        userDiscordId={userDiscordId}
+                        userName={userName}
+                        gradeName={gradeName}
+                        avatarUrl={avatarUrl}
+                    />
+                </div>
+            </header>
+
+            {/* Recherche globale */}
+            <GlobalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+        </>
+    )
+}

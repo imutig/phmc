@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Clock, ChevronLeft, ChevronRight, Calendar, Loader2, BadgeDollarSign, Plus, Trash2, Edit2, Search, AlertCircle, X, Download } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
+import { getCurrentISOWeekAndYear, getDateOfISOWeek, formatTime } from "@/lib/date-utils"
 
 interface Service {
     id: string
@@ -12,6 +13,15 @@ interface Service {
     duration_minutes: number
     salary_earned: number
     service_date: string
+}
+
+interface LiveService {
+    id: string
+    user_discord_id: string
+    user_name: string
+    user_avatar_url: string | null
+    grade_name: string
+    start_time: string
 }
 
 interface EmployeeData {
@@ -50,8 +60,9 @@ export default function GestionServicesPage() {
     const [employees, setEmployees] = useState<EmployeeData[]>([])
     const [totals, setTotals] = useState<Totals | null>(null)
     const [loading, setLoading] = useState(true)
-    const [week, setWeek] = useState(getCurrentISOWeek())
-    const [year, setYear] = useState(new Date().getFullYear())
+    const { week: currentWeek, year: currentYear } = getCurrentISOWeekAndYear()
+    const [week, setWeek] = useState(currentWeek)
+    const [year, setYear] = useState(currentYear)
     const [error, setError] = useState("")
     const [searchQuery, setSearchQuery] = useState("")
 
@@ -64,8 +75,16 @@ export default function GestionServicesPage() {
     const [submitting, setSubmitting] = useState(false)
     const [modalError, setModalError] = useState("")
 
+    // Services en cours
+    const [liveServices, setLiveServices] = useState<LiveService[]>([])
+    const [cuttingService, setCuttingService] = useState<string | null>(null)
+
     useEffect(() => {
         fetchData()
+        fetchLiveServices()
+        // Polling toutes les 30 secondes pour les services en cours
+        const interval = setInterval(fetchLiveServices, 30000)
+        return () => clearInterval(interval)
     }, [week, year])
 
     const fetchData = async () => {
@@ -86,6 +105,38 @@ export default function GestionServicesPage() {
             setError("Erreur réseau")
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchLiveServices = async () => {
+        try {
+            const res = await fetch('/api/intranet/services/admin?live=true')
+            if (res.ok) {
+                const data = await res.json()
+                setLiveServices(data.services || [])
+            }
+        } catch (e) {
+            console.error('Erreur récupération services en cours:', e)
+        }
+    }
+
+    const handleCutService = async (serviceId: string) => {
+        if (!confirm('Couper ce service maintenant ?')) return
+        setCuttingService(serviceId)
+        try {
+            const res = await fetch('/api/intranet/services/live', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ service_id: serviceId, cancel: false })
+            })
+            if (res.ok) {
+                fetchLiveServices()
+                fetchData()
+            }
+        } catch (e) {
+            console.error('Erreur coupure service:', e)
+        } finally {
+            setCuttingService(null)
         }
     }
 
@@ -264,6 +315,75 @@ export default function GestionServicesPage() {
                 </div>
             )}
 
+            {/* Services en cours (Live) */}
+            {liveServices.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg"
+                >
+                    <div className="flex items-center gap-2 mb-4">
+                        <motion.div
+                            animate={{ scale: [1, 1.2, 1] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="w-3 h-3 bg-red-500 rounded-full"
+                        />
+                        <h2 className="font-display font-bold text-red-400 uppercase tracking-wider text-sm">
+                            Services en cours ({liveServices.length})
+                        </h2>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {liveServices.map(service => {
+                            const startTime = new Date(service.start_time)
+                            const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000 / 60)
+                            return (
+                                <div
+                                    key={service.id}
+                                    className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-red-500/20 rounded-lg"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {service.user_avatar_url ? (
+                                            <img
+                                                src={service.user_avatar_url}
+                                                alt={service.user_name}
+                                                className="w-8 h-8 rounded-full border-2 border-red-500/30"
+                                            />
+                                        ) : (
+                                            <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center">
+                                                <span className="text-red-400 font-bold text-xs">
+                                                    {service.user_name.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="font-bold text-sm">{service.user_name}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {GRADE_DISPLAY[service.grade_name]?.name || service.grade_name}
+                                                {' • '}
+                                                <span className="text-red-400">
+                                                    {elapsed >= 60 ? `${Math.floor(elapsed / 60)}h${elapsed % 60}m` : `${elapsed}m`}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleCutService(service.id)}
+                                        disabled={cuttingService === service.id}
+                                        className="px-3 py-1.5 text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50"
+                                    >
+                                        {cuttingService === service.id ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                            'Couper'
+                                        )}
+                                    </button>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </motion.div>
+            )}
+
             {/* Liste des employés */}
             {filteredEmployees.length === 0 ? (
                 <div className="text-center py-12 bg-[#141414] border border-[#2a2a2a] rounded-lg">
@@ -430,28 +550,4 @@ export default function GestionServicesPage() {
             </Modal>
         </div>
     )
-}
-
-function getCurrentISOWeek(): number {
-    const now = new Date()
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-    const dayNum = d.getUTCDay() || 7
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-}
-
-function getDateOfISOWeek(week: number, year: number, dayIndex: number): string {
-    const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7))
-    const dow = simple.getUTCDay()
-    const ISOweekStart = simple
-    if (dow <= 4) ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1)
-    else ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay())
-    ISOweekStart.setUTCDate(ISOweekStart.getUTCDate() + dayIndex)
-    return ISOweekStart.toISOString().split('T')[0]
-}
-
-function formatTime(isoString: string): string {
-    const date = new Date(isoString)
-    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }

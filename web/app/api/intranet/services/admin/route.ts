@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { requireEditorAccess } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
+import { getISOWeekAndYear } from "@/lib/date-utils"
 
 // Salaires par grade
 const GRADE_SALARIES: Record<string, number> = {
@@ -19,20 +20,40 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
+    const liveParam = searchParams.get('live')
+
+    const supabase = await createClient()
+
+    // Si on demande les services en cours
+    if (liveParam === 'true') {
+        const { data: services, error } = await supabase
+            .from('services')
+            .select('id, user_discord_id, user_name, user_avatar_url, grade_name, start_time')
+            .is('end_time', null)
+            .order('start_time', { ascending: true })
+
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+
+        return NextResponse.json({ services: services || [] })
+    }
+
+    // Sinon, récupérer les services terminés de la semaine
     const weekParam = searchParams.get('week')
     const yearParam = searchParams.get('year')
 
     const now = new Date()
-    const week = weekParam ? parseInt(weekParam) : getISOWeek(now)
-    const year = yearParam ? parseInt(yearParam) : now.getFullYear()
-
-    const supabase = await createClient()
+    const { week: currentWeek, year: currentYear } = getISOWeekAndYear(now)
+    const week = weekParam ? parseInt(weekParam) : currentWeek
+    const year = yearParam ? parseInt(yearParam) : currentYear
 
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
         .eq('week_number', week)
         .eq('year', year)
+        .not('end_time', 'is', null)
         .order('user_name', { ascending: true })
         .order('start_time', { ascending: true })
 
@@ -111,8 +132,7 @@ export async function POST(request: Request) {
     const salaryPer15min = GRADE_SALARIES[grade_name] || 625
     const salaryEarned = slotsCount * salaryPer15min
 
-    const week = getISOWeek(startDate)
-    const year = startDate.getFullYear()
+    const { week, year } = getISOWeekAndYear(startDate)
     const serviceDate = startDate.toISOString().split('T')[0]
 
     const supabase = await createClient()
@@ -168,12 +188,4 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ success: true })
-}
-
-function getISOWeek(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-    const dayNum = d.getUTCDay() || 7
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
 }

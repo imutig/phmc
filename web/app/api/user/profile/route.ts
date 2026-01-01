@@ -32,6 +32,7 @@ export async function GET() {
         avatarUrl: avatarUrl || session.user.image || null,
         roles,
         grade,
+        gradeName: grade || null,
         gradeDisplay: grade ? GRADE_DISPLAY[grade] : null
     })
 }

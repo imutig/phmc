@@ -2,11 +2,15 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
-import { ChevronDown, Heart, Clock, Users, GraduationCap, LayoutDashboard, LogOut, Sparkles, Stethoscope, Ambulance, HeartPulse, AlertTriangle, X } from "lucide-react";
+import { ChevronDown, Heart, Clock, Users, GraduationCap, LayoutDashboard, LogOut, Sparkles, Stethoscope, Ambulance, HeartPulse, AlertTriangle, X, ArrowRight } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useRef, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SnowEffect } from "@/components/ui/SnowEffect";
+import { HorizontalScrollSection, HorizontalSlide } from "@/components/ui/HorizontalScrollSection";
+import { TextReveal } from "@/components/ui/TextReveal";
+import { MagneticButton } from "@/components/ui/MagneticButton";
+import { ParallaxBackground } from "@/components/ui/ParallaxSection";
 
 // Animation variants
 const fadeInUp = {
@@ -400,6 +404,54 @@ function HomeContent() {
               </motion.div>
             </Link>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Horizontal Scroll Section - Nos Valeurs */}
+      <HorizontalScrollSection scrollMultiplier={4} className="bg-[#0a0a0a]">
+        <HorizontalSlide className="px-6">
+          <div className="max-w-4xl text-center">
+            <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4 block">Notre Mission</span>
+            <h2 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">Excellence Médicale</h2>
+            <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+              Chaque seconde compte. Notre équipe d'élite intervient avec rapidité et précision pour sauver des vies.
+            </p>
+          </div>
+        </HorizontalSlide>
+
+        <HorizontalSlide className="px-6">
+          <div className="max-w-4xl text-center">
+            <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4 block">Notre Équipe</span>
+            <h2 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">Professionnels Passionnés</h2>
+            <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+              Des ambulanciers aux chirurgiens, chaque membre partage la même passion : protéger les citoyens de San Andreas.
+            </p>
+          </div>
+        </HorizontalSlide>
+
+        <HorizontalSlide className="px-6">
+          <div className="max-w-4xl text-center">
+            <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4 block">Votre Avenir</span>
+            <h2 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">Carrière d'Exception</h2>
+            <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-8">
+              Formation continue, évolution de carrière, et une équipe soudée. Votre vocation commence ici.
+            </p>
+            <Link href="/ems">
+              <MagneticButton className="px-8 py-4 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest uppercase inline-flex items-center gap-2">
+                Commencer l'aventure
+                <ArrowRight className="w-4 h-4" />
+              </MagneticButton>
+            </Link>
+          </div>
+        </HorizontalSlide>
+      </HorizontalScrollSection>
+
+      {/* Text Reveal Section */}
+      <section className="py-32 px-6 bg-[#050505]">
+        <div className="max-w-4xl mx-auto text-center">
+          <TextReveal className="font-display text-3xl md:text-5xl font-bold uppercase tracking-tighter leading-tight">
+            Rejoignez une équipe qui fait la différence chaque jour. Votre expertise peut sauver des vies.
+          </TextReveal>
         </div>
       </section>
 

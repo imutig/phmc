@@ -17,15 +17,12 @@ import {
     Clock,
     UserCog,
     Book,
-    BarChart3,
     CalendarDays,
-    Search,
     Menu,
-    X
+    X,
+    BarChart3
 } from "lucide-react"
 import { signOut } from "next-auth/react"
-import { GlobalSearch } from "@/components/ui/GlobalSearch"
-import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
 
 interface SidebarProps {
     userRoles?: string[]
@@ -116,12 +113,17 @@ const menuItems = [
         icon: FileText,
         roles: [...EMS_GRADES, 'recruiter']
     },
+    {
+        href: "/intranet/permissions",
+        label: "Permissions",
+        icon: Shield,
+        roles: ['direction']
+    },
 ]
 
 export function Sidebar({ userRoles = [] }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
-    const [isSearchOpen, setIsSearchOpen] = useState(false)
     const pathname = usePathname()
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
@@ -129,13 +131,6 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
     useEffect(() => {
         setMobileOpen(false)
     }, [pathname])
-
-    // Raccourci Ctrl+K pour ouvrir la recherche
-    useKeyboardShortcuts({
-        shortcuts: [
-            { key: 'k', ctrlKey: true, action: () => setIsSearchOpen(true) }
-        ]
-    })
 
     useEffect(() => {
         async function fetchProfile() {
@@ -193,27 +188,6 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                         <X className="w-5 h-5" />
                     </button>
                 )}
-            </div>
-
-            {/* Bouton de recherche */}
-            <div className="px-2 py-2">
-                <button
-                    onClick={() => {
-                        setIsSearchOpen(true)
-                        if (isMobile) setMobileOpen(false)
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                    <Search className="w-5 h-5 flex-shrink-0" />
-                    {(isMobile || !collapsed) && (
-                        <div className="flex-1 flex items-center justify-between">
-                            <span className="text-sm">Rechercher...</span>
-                            <kbd className="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-500 hidden sm:inline">
-                                Ctrl+K
-                            </kbd>
-                        </div>
-                    )}
-                </button>
             </div>
 
             {/* Navigation */}
@@ -366,9 +340,6 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             >
                 <SidebarContent />
             </motion.aside>
-
-            {/* Recherche globale */}
-            <GlobalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </>
     )
 }

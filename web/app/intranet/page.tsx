@@ -1,10 +1,281 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { motion } from "framer-motion"
-import { HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield, Loader2, Calendar, MapPin, Clock } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+    HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield, Loader2,
+    Calendar, MapPin, Clock, Play, Square, ChevronRight, Activity, Timer, Wallet,
+    FileEdit, Search, BookOpen
+} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
+
+// Types
+interface UserProfile {
+    discord_id: string
+    display_name: string
+    avatar_url?: string
+    gradeName: string
+    roles: string[]
+}
+
+interface LiveService {
+    id: string
+    user_discord_id: string
+    user_name: string
+    user_avatar_url?: string
+    grade_name: string
+    start_time: string
+}
+
+interface WeekStats {
+    totalMinutes: number
+    totalSalary: number
+    serviceCount: number
+}
+
+// Composant Widget Collègues en Service
+function ColleaguesWidget() {
+    const [colleagues, setColleagues] = useState<LiveService[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        async function fetchColleagues() {
+            try {
+                const res = await fetch('/api/intranet/services/admin?live=true')
+                if (res.ok) {
+                    const data = await res.json()
+                    setColleagues(data.services || [])
+                }
+            } catch (e) { }
+            setLoading(false)
+        }
+        fetchColleagues()
+        const interval = setInterval(fetchColleagues, 30000) // Refresh every 30s
+        return () => clearInterval(interval)
+    }, [])
+
+    const formatDuration = (startTime: string) => {
+        const start = new Date(startTime).getTime()
+        const now = Date.now()
+        const diffMs = now - start
+        const hours = Math.floor(diffMs / (1000 * 60 * 60))
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+        return hours > 0 ? `${hours}h${minutes.toString().padStart(2, '0')}` : `${minutes}min`
+    }
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+        >
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <h3 className="font-display font-bold text-lg text-white">Collègues en service</h3>
+                </div>
+                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                    {loading ? '...' : colleagues.length} actif{colleagues.length !== 1 ? 's' : ''}
+                </span>
+            </div>
+
+            {loading ? (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                </div>
+            ) : colleagues.length === 0 ? (
+                <div className="text-center py-6 text-gray-500">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Personne en service actuellement</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {colleagues.slice(0, 5).map((colleague) => (
+                        <div
+                            key={colleague.id}
+                            className="flex items-center gap-3 p-2 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]"
+                        >
+                            {colleague.user_avatar_url ? (
+                                <img
+                                    src={colleague.user_avatar_url}
+                                    alt=""
+                                    className="w-8 h-8 rounded-full"
+                                />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                    <Users className="w-4 h-4 text-gray-500" />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-white truncate">{colleague.user_name}</p>
+                                <p className="text-xs text-gray-500">{colleague.grade_name}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-green-400 font-mono">{formatDuration(colleague.start_time)}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {colleagues.length > 5 && (
+                        <p className="text-xs text-gray-500 text-center">
+                            +{colleagues.length - 5} autres en service
+                        </p>
+                    )}
+                </div>
+            )}
+        </motion.div>
+    )
+}
+
+// Composant Stats Rapides Utilisateur
+function UserStatsWidget({ userDiscordId }: { userDiscordId: string }) {
+    const [stats, setStats] = useState<WeekStats | null>(null)
+    const [liveService, setLiveService] = useState<LiveService | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        async function fetchStats() {
+            try {
+                const { week, year } = getCurrentISOWeekAndYear()
+                const [servicesRes, liveRes] = await Promise.all([
+                    fetch(`/api/intranet/services?week=${week}&year=${year}`),
+                    fetch('/api/intranet/services/live')
+                ])
+
+                if (servicesRes.ok) {
+                    const data = await servicesRes.json()
+                    const services = data.services || []
+                    const completedServices = services.filter((s: any) => s.end_time)
+                    setStats({
+                        totalMinutes: completedServices.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0),
+                        totalSalary: completedServices.reduce((acc: number, s: any) => acc + (s.salary_earned || 0), 0),
+                        serviceCount: completedServices.length
+                    })
+                }
+
+                if (liveRes.ok) {
+                    const liveData = await liveRes.json()
+                    setLiveService(liveData.service || null)
+                }
+            } catch (e) { }
+            setLoading(false)
+        }
+        fetchStats()
+    }, [userDiscordId])
+
+    const formatTime = (minutes: number) => {
+        const h = Math.floor(minutes / 60)
+        const m = minutes % 60
+        return h > 0 ? `${h}h${m > 0 ? m.toString().padStart(2, '0') : ''}` : `${m}min`
+    }
+
+    const formatMoney = (amount: number) => {
+        return new Intl.NumberFormat('fr-FR').format(amount) + ' $'
+    }
+
+    if (loading) {
+        return (
+            <div className="grid grid-cols-3 gap-4">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a] animate-pulse">
+                        <div className="h-8 bg-gray-800 rounded mb-2" />
+                        <div className="h-4 bg-gray-800 rounded w-2/3" />
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Status Service */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`p-4 rounded-lg border ${liveService
+                        ? 'bg-green-500/10 border-green-500/30'
+                        : 'bg-[#141414] border-[#2a2a2a]'
+                    }`}
+            >
+                <div className="flex items-center gap-2 mb-2">
+                    {liveService ? (
+                        <>
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-xs text-green-400 uppercase font-bold">En service</span>
+                        </>
+                    ) : (
+                        <>
+                            <Square className="w-4 h-4 text-gray-500" />
+                            <span className="text-xs text-gray-500 uppercase">Hors service</span>
+                        </>
+                    )}
+                </div>
+                {liveService ? (
+                    <LiveTimer startTime={liveService.start_time} />
+                ) : (
+                    <p className="text-2xl font-display font-bold text-gray-400">--:--</p>
+                )}
+            </motion.div>
+
+            {/* Heures cette semaine */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1 }}
+                className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+            >
+                <div className="flex items-center gap-2 mb-2">
+                    <Timer className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs text-gray-500 uppercase">Cette semaine</span>
+                </div>
+                <p className="text-2xl font-display font-bold text-white">
+                    {stats ? formatTime(stats.totalMinutes) : '0h'}
+                </p>
+                <p className="text-xs text-gray-500">{stats?.serviceCount || 0} services</p>
+            </motion.div>
+
+            {/* Gains cette semaine */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+            >
+                <div className="flex items-center gap-2 mb-2">
+                    <Wallet className="w-4 h-4 text-green-400" />
+                    <span className="text-xs text-gray-500 uppercase">Gains semaine</span>
+                </div>
+                <p className="text-2xl font-display font-bold text-green-400">
+                    {stats ? formatMoney(stats.totalSalary) : '0 $'}
+                </p>
+            </motion.div>
+        </div>
+    )
+}
+
+// Timer en direct
+function LiveTimer({ startTime }: { startTime: string }) {
+    const [elapsed, setElapsed] = useState('')
+
+    useEffect(() => {
+        const update = () => {
+            const start = new Date(startTime).getTime()
+            const now = Date.now()
+            const diffMs = now - start
+            const hours = Math.floor(diffMs / (1000 * 60 * 60))
+            const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+            const seconds = Math.floor((diffMs % (1000 * 60)) / 1000)
+            setElapsed(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+        }
+        update()
+        const interval = setInterval(update, 1000)
+        return () => clearInterval(interval)
+    }, [startTime])
+
+    return <p className="text-2xl font-display font-bold text-green-400 font-mono">{elapsed}</p>
+}
 
 // Composant Countdown pour le prochain événement
 function NextEventWidget() {
@@ -60,13 +331,13 @@ function NextEventWidget() {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
             className="p-6 rounded-lg border overflow-hidden relative"
             style={{
                 backgroundColor: '#141414',
                 borderColor: event.color + '40'
             }}
         >
-            {/* Accent bar */}
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: event.color }} />
 
             <div className="flex flex-col md:flex-row items-start justify-between gap-4">
@@ -91,7 +362,6 @@ function NextEventWidget() {
                     </div>
                 </div>
 
-                {/* Countdown */}
                 <div className="flex items-center gap-2 md:gap-3 mt-4 md:mt-0">
                     {[
                         { value: countdown.days, label: 'j' },
@@ -115,13 +385,15 @@ function NextEventWidget() {
     )
 }
 
-const quickLinks = [
-    { href: "/intranet/tarifs", label: "Calculer une facture", description: "Outil de tarification", icon: DollarSign, color: "text-red-400" },
-    { href: "/intranet/medicaments", label: "Base Médicaments", description: "Posologies & effets", icon: Pill, color: "text-blue-400" },
-    { href: "/intranet/candidatures", label: "Candidatures", description: "Gestion recrutement", icon: Users, color: "text-purple-400" },
-    { href: "/intranet/reglement", label: "Règlement Interne", description: "Code de conduite", icon: FileText, color: "text-amber-400" },
+// Actions rapides
+const quickActions = [
+    { href: "/intranet/ordonnance", label: "Créer ordonnance", icon: FileEdit, color: "text-purple-400", bg: "bg-purple-500/10" },
+    { href: "/intranet/tarifs", label: "Consulter tarifs", icon: DollarSign, color: "text-green-400", bg: "bg-green-500/10" },
+    { href: "/intranet/medicaments", label: "Médicaments", icon: Pill, color: "text-blue-400", bg: "bg-blue-500/10" },
+    { href: "/intranet/wiki", label: "Wiki", icon: BookOpen, color: "text-amber-400", bg: "bg-amber-500/10" },
 ]
 
+// Couleurs des rôles
 const roleColors: Record<string, string> = {
     "Direction": "text-red-400 bg-red-500/10 border-red-500/30",
     "Chirurgien": "text-purple-400 bg-purple-500/10 border-purple-500/30",
@@ -129,88 +401,116 @@ const roleColors: Record<string, string> = {
     "Infirmier": "text-green-400 bg-green-500/10 border-green-500/30",
     "Ambulancier": "text-orange-400 bg-orange-500/10 border-orange-500/30",
     "Recruteur": "text-pink-400 bg-pink-500/10 border-pink-500/30",
-    "Candidat": "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
     "Visiteur": "text-gray-400 bg-gray-500/10 border-gray-500/30",
 }
 
 export default function IntranetPage() {
-    const [userRole, setUserRole] = useState<string | null>(null)
-    const [allRoles, setAllRoles] = useState<string[]>([])
+    const [profile, setProfile] = useState<UserProfile | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        async function fetchRoles() {
+        async function fetchProfile() {
             try {
-                const res = await fetch('/api/user/roles')
-                const data = await res.json()
-                setUserRole(data.primaryRole || "Visiteur")
-                setAllRoles(data.roles || [])
+                const res = await fetch('/api/user/profile')
+                if (res.ok) {
+                    const data = await res.json()
+                    setProfile(data)
+                }
             } catch (error) {
-                console.error('Erreur récupération rôles:', error)
-                setUserRole("Erreur")
+                console.error('Erreur récupération profil:', error)
             } finally {
                 setLoading(false)
             }
         }
-        fetchRoles()
+        fetchProfile()
     }, [])
 
     return (
-        <div className="py-4 md:py-8 space-y-6 md:space-y-8">
-            {/* Header avec rôle affiché */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 md:mb-8">
-                <div className="flex items-center gap-3 md:gap-4">
-                    <Image src="/logo_phmc.webp" alt="PHMC Logo" width={48} height={48} className="md:w-[60px] md:h-[60px]" />
+        <div className="py-4 md:py-8 space-y-6">
+            {/* Header personnalisé */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+            >
+                <div className="flex items-center gap-4">
+                    {profile?.avatar_url ? (
+                        <img
+                            src={profile.avatar_url}
+                            alt=""
+                            className="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-red-500/50"
+                        />
+                    ) : (
+                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
+                            <HeartPulse className="w-7 h-7 text-white" />
+                        </div>
+                    )}
                     <div>
-                        <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight text-white mb-1">
-                            Intranet EMS
+                        <h1 className="font-display text-2xl md:text-3xl font-bold text-white">
+                            Bienvenue, {profile?.display_name?.split(' ')[0] || 'Chargement...'}
                         </h1>
-                        <p className="text-gray-400 font-sans text-sm md:text-base">
-                            Bienvenue sur votre espace personnel.
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                            {loading ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                            ) : (
+                                <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-xs font-bold ${roleColors[profile?.gradeName || "Visiteur"]}`}>
+                                    <Shield className="w-3 h-3" />
+                                    {profile?.gradeName || "Visiteur"}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Badge de rôle */}
-                <div className="flex flex-row md:flex-col items-start md:items-end gap-2 md:gap-1">
-                    {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-                    ) : (
-                        <>
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded border ${roleColors[userRole || "Visiteur"]}`}>
-                                <Shield className="w-4 h-4" />
-                                <span className="font-display font-bold text-sm uppercase tracking-wider">
-                                    {userRole}
-                                </span>
+                {/* Bouton recherche */}
+                <button
+                    onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-gray-400 hover:text-white hover:border-red-500/30 transition-colors"
+                >
+                    <Search className="w-4 h-4" />
+                    <span className="text-sm">Rechercher...</span>
+                    <span className="text-xs bg-[#2a2a2a] px-1.5 py-0.5 rounded">⌘K</span>
+                </button>
+            </motion.div>
+
+            {/* Stats utilisateur */}
+            {profile && <UserStatsWidget userDiscordId={profile.discord_id} />}
+
+            {/* Actions rapides */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+            >
+                <h2 className="font-display font-bold text-lg text-white mb-3">Actions rapides</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {quickActions.map((action) => (
+                        <Link key={action.href} href={action.href}>
+                            <div className={`p-4 rounded-lg ${action.bg} border border-transparent hover:border-current transition-all group`}>
+                                <action.icon className={`w-6 h-6 ${action.color} mb-2 group-hover:scale-110 transition-transform`} />
+                                <p className={`text-sm font-medium ${action.color}`}>{action.label}</p>
                             </div>
-                            {allRoles.length > 0 && (
-                                <span className="text-xs text-gray-500 hidden md:inline">
-                                    Rôles: {allRoles.join(', ')}
-                                </span>
-                            )}
-                        </>
-                    )}
+                        </Link>
+                    ))}
                 </div>
+            </motion.div>
+
+            {/* Layout 2 colonnes */}
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* Collègues en service */}
+                <ColleaguesWidget />
+
+                {/* Prochain événement */}
+                <NextEventWidget />
             </div>
 
-            {/* Widget Prochain Événement avec Countdown */}
-            <NextEventWidget />
-
-            {/* Quick Links Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {quickLinks.map((link) => (
-                    <Link key={link.href} href={link.href} className="group block">
-                        <div className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a] hover:border-red-500/30 transition-colors">
-                            <link.icon className={`w-8 h-8 ${link.color} mb-4`} />
-                            <h3 className="font-display font-bold text-lg mb-1 text-white">{link.label}</h3>
-                            <p className="text-gray-500 text-sm font-sans">{link.description}</p>
-                        </div>
-                    </Link>
-                ))}
-            </div>
-
-            {/* Info Section Simple */}
-            <div className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]">
+            {/* Rappels */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+            >
                 <div className="flex items-center gap-3 mb-4">
                     <TrendingUp className="w-5 h-5 text-red-600" />
                     <h2 className="font-display font-bold uppercase text-lg text-white">Rappels Importants</h2>
@@ -230,7 +530,7 @@ export default function IntranetPage() {
                         Consultez le règlement régulièrement pour les mises à jour.
                     </li>
                 </ul>
-            </div>
+            </motion.div>
         </div>
     )
 }

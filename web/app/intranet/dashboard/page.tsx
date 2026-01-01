@@ -1,88 +1,87 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { motion } from "framer-motion"
 import {
-    BarChart3, Users, Clock, DollarSign, Loader2, TrendingUp,
-    ChevronLeft, ChevronRight, Award, Calendar
+    BarChart3, Users, Clock, TrendingUp, TrendingDown, Calendar,
+    Loader2, AlertCircle, ChevronLeft, ChevronRight, Activity,
+    DollarSign, UserCheck, UserX
 } from "lucide-react"
-import { useToast } from "@/contexts/ToastContext"
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
+import { getCurrentISOWeekAndYear, getDateOfISOWeek } from "@/lib/date-utils"
 
-interface WeeklyStats {
-    week: number
-    year: number
+interface EmployeeStats {
+    user_discord_id: string
+    user_name: string
+    user_avatar_url?: string
+    grade_name: string
     totalMinutes: number
     totalSalary: number
     serviceCount: number
 }
 
-interface GradeStats {
-    grade: string
+interface DayStats {
+    day: string
+    dayName: string
+    minutes: number
+    services: number
+}
+
+interface WeekSummary {
     totalMinutes: number
     totalSalary: number
-    employeeCount: number
+    totalServices: number
+    activeEmployees: number
+    totalEmployees: number
+    previousWeekMinutes: number
 }
 
-interface TopEmployee {
-    name: string
-    grade: string
-    totalMinutes: number
-    totalSalary: number
-}
-
-interface DashboardData {
-    period: { weeksBack: number, currentWeek: number, currentYear: number }
-    totals: {
-        totalMinutes: number
-        totalHours: number
-        totalSalary: number
-        totalServices: number
-        uniqueEmployees: number
-        avgHoursPerEmployee: number
-    }
-    weeklyStats: WeeklyStats[]
-    gradeStats: GradeStats[]
-    topEmployees: TopEmployee[]
-}
-
-const GRADE_COLORS: Record<string, string> = {
-    direction: '#ef4444',
-    chirurgien: '#a855f7',
-    medecin: '#3b82f6',
-    infirmier: '#22c55e',
-    ambulancier: '#f97316'
-}
-
-const GRADE_LABELS: Record<string, string> = {
-    direction: 'Direction',
-    chirurgien: 'Chirurgien',
-    medecin: 'Médecin',
-    infirmier: 'Infirmier',
-    ambulancier: 'Ambulancier'
-}
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
 export default function DashboardPage() {
-    const [data, setData] = useState<DashboardData | null>(null)
     const [loading, setLoading] = useState(true)
-    const [weeksBack, setWeeksBack] = useState(4)
+    const [week, setWeek] = useState(0)
+    const [year, setYear] = useState(0)
+    const [services, setServices] = useState<any[]>([])
+    const [liveServices, setLiveServices] = useState<any[]>([])
     const [error, setError] = useState("")
-    const toast = useToast()
 
     useEffect(() => {
+        const { week: currentWeek, year: currentYear } = getCurrentISOWeekAndYear()
+        setWeek(currentWeek)
+        setYear(currentYear)
+    }, [])
+
+    useEffect(() => {
+        if (week === 0 || year === 0) return
         fetchData()
-    }, [weeksBack])
+    }, [week, year])
 
     const fetchData = async () => {
         setLoading(true)
+        setError("")
         try {
-            const res = await fetch(`/api/intranet/dashboard?weeks=${weeksBack}`)
-            if (res.ok) {
-                setData(await res.json())
-                setError("")
-            } else if (res.status === 403) {
-                setError("Accès réservé à la direction")
-            } else {
-                setError("Erreur de chargement")
+            const [servicesRes, liveRes] = await Promise.all([
+                fetch(`/api/intranet/services/admin?week=${week}&year=${year}`),
+                fetch('/api/intranet/services/admin?live=true')
+            ])
+
+            if (!servicesRes.ok) {
+                if (servicesRes.status === 403) {
+                    setError("Accès réservé à la Direction")
+                } else {
+                    setError("Erreur de chargement")
+                }
+                return
+            }
+
+            const servicesData = await servicesRes.json()
+            setServices(servicesData.services || [])
+
+            if (liveRes.ok) {
+                const liveData = await liveRes.json()
+                setLiveServices(liveData.services || [])
             }
         } catch (e) {
             setError("Erreur réseau")
@@ -91,247 +90,373 @@ export default function DashboardPage() {
         }
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-            </div>
-        )
+    // Calcul des stats par jour
+    const dayStats = useMemo((): DayStats[] => {
+        const stats: Record<string, { minutes: number; services: number }> = {}
+
+        // Init tous les jours
+        for (let i = 0; i < 7; i++) {
+            const date = getDateOfISOWeek(week, year, i)
+            stats[date] = { minutes: 0, services: 0 }
+        }
+
+        // Agréger les services
+        for (const service of services) {
+            if (!service.end_time) continue
+            const date = service.service_date
+            if (stats[date]) {
+                stats[date].minutes += service.duration_minutes || 0
+                stats[date].services += 1
+            }
+        }
+
+        return Object.entries(stats).map(([date, data], i) => ({
+            day: date,
+            dayName: DAYS[i],
+            minutes: data.minutes,
+            services: data.services
+        }))
+    }, [services, week, year])
+
+    // Calcul des stats par employé
+    const employeeStats = useMemo((): EmployeeStats[] => {
+        const stats: Record<string, EmployeeStats> = {}
+
+        for (const service of services) {
+            if (!service.end_time) continue
+            const id = service.user_discord_id
+
+            if (!stats[id]) {
+                stats[id] = {
+                    user_discord_id: id,
+                    user_name: service.user_name,
+                    user_avatar_url: service.user_avatar_url,
+                    grade_name: service.grade_name,
+                    totalMinutes: 0,
+                    totalSalary: 0,
+                    serviceCount: 0
+                }
+            }
+
+            stats[id].totalMinutes += service.duration_minutes || 0
+            stats[id].totalSalary += service.salary_earned || 0
+            stats[id].serviceCount += 1
+        }
+
+        return Object.values(stats).sort((a, b) => b.totalMinutes - a.totalMinutes)
+    }, [services])
+
+    // Résumé de la semaine
+    const weekSummary = useMemo((): WeekSummary => {
+        const completedServices = services.filter(s => s.end_time)
+        return {
+            totalMinutes: completedServices.reduce((acc, s) => acc + (s.duration_minutes || 0), 0),
+            totalSalary: completedServices.reduce((acc, s) => acc + (s.salary_earned || 0), 0),
+            totalServices: completedServices.length,
+            activeEmployees: new Set(completedServices.map(s => s.user_discord_id)).size,
+            totalEmployees: 15, // TODO: Récupérer depuis l'API
+            previousWeekMinutes: 0 // TODO: Récupérer depuis l'API
+        }
+    }, [services])
+
+    const formatTime = (minutes: number) => {
+        const h = Math.floor(minutes / 60)
+        const m = minutes % 60
+        return `${h}h${m > 0 ? m.toString().padStart(2, '0') : ''}`
+    }
+
+    const formatMoney = (amount: number) => {
+        return new Intl.NumberFormat('fr-FR').format(amount) + ' $'
+    }
+
+    const maxDayMinutes = Math.max(...dayStats.map(d => d.minutes), 1)
+
+    const navigateWeek = (delta: number) => {
+        let newWeek = week + delta
+        let newYear = year
+
+        if (newWeek < 1) {
+            newYear--
+            newWeek = 52
+        } else if (newWeek > 52) {
+            newYear++
+            newWeek = 1
+        }
+
+        setWeek(newWeek)
+        setYear(newYear)
     }
 
     if (error) {
         return (
-            <div className="p-8">
-                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-center text-red-400">
-                    {error}
+            <div className="py-4 md:py-8">
+                <Breadcrumbs items={[{ label: "Dashboard" }]} />
+                <div className="p-8 text-center">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-400">{error}</p>
                 </div>
             </div>
         )
     }
 
-    if (!data) return null
-
-    const maxWeeklyMinutes = Math.max(...data.weeklyStats.map(w => w.totalMinutes), 1)
-    const maxGradeSalary = Math.max(...data.gradeStats.map(g => g.totalSalary), 1)
-
     return (
-        <div className="py-4 md:p-8">
+        <div className="py-4 md:py-8 space-y-6">
+            <Breadcrumbs items={[{ label: "Dashboard" }]} />
+
             {/* Header */}
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6 md:mb-8"
-            >
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <BarChart3 className="w-6 md:w-8 h-6 md:h-8 text-red-500" />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <BarChart3 className="w-8 h-8 text-red-500" />
+                    <div>
                         <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
-                            Dashboard Analytics
+                            Dashboard
                         </h1>
+                        <p className="text-gray-400 text-sm">Vue d'ensemble de l'activité</p>
                     </div>
-                    <p className="text-gray-400 font-sans text-sm md:text-base">
-                        Vue d'ensemble des {weeksBack} dernières semaines
-                    </p>
                 </div>
-                <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded-lg p-1 self-start">
+
+                {/* Navigation semaine */}
+                <div className="flex items-center gap-2 bg-[#141414] border border-[#2a2a2a] rounded-lg p-1">
                     <button
-                        onClick={() => setWeeksBack(Math.max(1, weeksBack - 1))}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
+                        onClick={() => navigateWeek(-1)}
+                        className="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
                     >
                         <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="px-3 font-bold text-sm">{weeksBack} sem.</span>
+                    <div className="px-4 py-1 text-center min-w-[140px]">
+                        <p className="font-display font-bold text-white">Semaine {week}</p>
+                        <p className="text-xs text-gray-500">{year}</p>
+                    </div>
                     <button
-                        onClick={() => setWeeksBack(Math.min(12, weeksBack + 1))}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
+                        onClick={() => navigateWeek(1)}
+                        className="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
                     >
                         <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
-            </motion.div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <div className="flex items-center gap-2 md:gap-3 mb-2">
-                        <Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
-                        <span className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Heures</span>
-                    </div>
-                    <p className="font-display text-xl md:text-3xl font-bold text-blue-400">{data.totals.totalHours}h</p>
-                    <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-                        ~{data.totals.avgHoursPerEmployee}h / emp.
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <div className="flex items-center gap-2 md:gap-3 mb-2">
-                        <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-green-400" />
-                        <span className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Salaires</span>
-                    </div>
-                    <p className="font-display text-xl md:text-3xl font-bold text-green-400">${data.totals.totalSalary.toLocaleString()}</p>
-                    <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-                        {data.totals.totalServices} services
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <div className="flex items-center gap-2 md:gap-3 mb-2">
-                        <Users className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
-                        <span className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Employés</span>
-                    </div>
-                    <p className="font-display text-xl md:text-3xl font-bold text-purple-400">{data.totals.uniqueEmployees}</p>
-                    <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-                        actifs
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <div className="flex items-center gap-2 md:gap-3 mb-2">
-                        <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
-                        <span className="text-[10px] md:text-xs text-gray-500 uppercase tracking-widest">Moy./sem</span>
-                    </div>
-                    <p className="font-display text-xl md:text-3xl font-bold text-orange-400">
-                        ${Math.round(data.totals.totalSalary / weeksBack).toLocaleString()}
-                    </p>
-                    <p className="text-[10px] md:text-xs text-gray-500 mt-1">
-                        {Math.round(data.totals.totalHours / weeksBack)}h / sem
-                    </p>
-                </motion.div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-                {/* Graphique évolution par semaine */}
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <h2 className="font-display font-bold text-base md:text-lg mb-4 md:mb-6 flex items-center gap-2">
-                        <Calendar className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
-                        Évolution par semaine
-                    </h2>
-                    <div className="flex items-end gap-1 md:gap-2 h-32 md:h-48">
-                        {data.weeklyStats.map((week, i) => (
-                            <div
-                                key={`${week.year}-${week.week}`}
-                                className="flex-1 flex flex-col items-center gap-1 md:gap-2"
-                            >
-                                <div className="text-[10px] md:text-xs text-gray-500">
-                                    {Math.round(week.totalMinutes / 60)}h
-                                </div>
-                                <motion.div
-                                    initial={{ height: 0 }}
-                                    animate={{ height: `${(week.totalMinutes / maxWeeklyMinutes) * 100}%` }}
-                                    transition={{ delay: 0.5 + i * 0.1 }}
-                                    className="w-full bg-gradient-to-t from-red-600 to-red-400 rounded-t"
-                                    style={{ minHeight: week.totalMinutes > 0 ? '8px' : '0' }}
-                                />
-                                <div className="text-[10px] md:text-xs text-gray-500 text-center">
-                                    S{week.week}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
-
-                {/* Répartition par grade */}
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-                >
-                    <h2 className="font-display font-bold text-base md:text-lg mb-4 md:mb-6 flex items-center gap-2">
-                        <Users className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
-                        Répartition par grade
-                    </h2>
-                    <div className="space-y-3 md:space-y-4">
-                        {data.gradeStats.map((grade, i) => (
-                            <div key={grade.grade}>
-                                <div className="flex justify-between items-center text-xs md:text-sm mb-1">
-                                    <span className="font-medium" style={{ color: GRADE_COLORS[grade.grade] }}>
-                                        {GRADE_LABELS[grade.grade] || grade.grade}
-                                    </span>
-                                    <span className="text-gray-400 text-[10px] md:text-sm">
-                                        ${grade.totalSalary.toLocaleString()} • {grade.employeeCount} emp.
-                                    </span>
-                                </div>
-                                <div className="h-2 md:h-3 bg-[#0a0a0a] rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${(grade.totalSalary / maxGradeSalary) * 100}%` }}
-                                        transition={{ delay: 0.6 + i * 0.1 }}
-                                        className="h-full rounded-full"
-                                        style={{ backgroundColor: GRADE_COLORS[grade.grade] }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </motion.div>
-            </div>
-
-            {/* Top employés */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="p-4 md:p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg"
-            >
-                <h2 className="font-display font-bold text-base md:text-lg mb-4 md:mb-6 flex items-center gap-2">
-                    <Award className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" />
-                    Top 5 employés (par heures)
-                </h2>
-                <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-5">
-                    {data.topEmployees.map((emp, i) => (
-                        <div
-                            key={i}
-                            className="text-center p-3 md:p-4 bg-[#0a0a0a] rounded-lg border border-[#2a2a2a] flex-shrink-0 w-28 md:w-auto"
-                        >
-                            <div className={`
-                                w-10 h-10 md:w-12 md:h-12 mx-auto mb-2 md:mb-3 rounded-full flex items-center justify-center text-lg md:text-xl font-bold
-                                ${i === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                                    i === 1 ? 'bg-gray-400/20 text-gray-300' :
-                                        i === 2 ? 'bg-orange-600/20 text-orange-400' :
-                                            'bg-[#1a1a1a] text-gray-500'}
-                            `}>
-                                {i + 1}
-                            </div>
-                            <p className="font-display font-bold text-xs md:text-sm truncate">{emp.name}</p>
-                            <p className="text-[10px] md:text-xs mb-1 md:mb-2" style={{ color: GRADE_COLORS[emp.grade] }}>
-                                {GRADE_LABELS[emp.grade] || emp.grade}
-                            </p>
-                            <p className="text-base md:text-lg font-bold text-blue-400">
-                                {Math.round(emp.totalMinutes / 60)}h
-                            </p>
-                            <p className="text-[10px] md:text-xs text-green-400">
-                                ${emp.totalSalary.toLocaleString()}
-                            </p>
-                        </div>
-                    ))}
+            {loading ? (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-500" />
                 </div>
-            </motion.div>
+            ) : (
+                <>
+                    {/* KPIs */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <Clock className="w-4 h-4 text-blue-400" />
+                                <span className="text-xs text-gray-500 uppercase">Heures totales</span>
+                            </div>
+                            <p className="text-2xl md:text-3xl font-display font-bold text-white">
+                                {formatTime(weekSummary.totalMinutes)}
+                            </p>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <DollarSign className="w-4 h-4 text-green-400" />
+                                <span className="text-xs text-gray-500 uppercase">Salaires versés</span>
+                            </div>
+                            <p className="text-2xl md:text-3xl font-display font-bold text-green-400">
+                                {formatMoney(weekSummary.totalSalary)}
+                            </p>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <Activity className="w-4 h-4 text-purple-400" />
+                                <span className="text-xs text-gray-500 uppercase">Services</span>
+                            </div>
+                            <p className="text-2xl md:text-3xl font-display font-bold text-white">
+                                {weekSummary.totalServices}
+                            </p>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="p-4 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <Users className="w-4 h-4 text-orange-400" />
+                                <span className="text-xs text-gray-500 uppercase">Employés actifs</span>
+                            </div>
+                            <p className="text-2xl md:text-3xl font-display font-bold text-white">
+                                {weekSummary.activeEmployees}
+                                <span className="text-sm text-gray-500 font-normal ml-1">
+                                    /{weekSummary.totalEmployees}
+                                </span>
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {Math.round((weekSummary.activeEmployees / weekSummary.totalEmployees) * 100)}% de présence
+                            </p>
+                        </motion.div>
+                    </div>
+
+                    {/* Graphique activité par jour */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                    >
+                        <h3 className="font-display font-bold text-lg text-white mb-4">
+                            Activité par jour
+                        </h3>
+                        <div className="space-y-3">
+                            {dayStats.map((day, i) => (
+                                <div key={day.day} className="flex items-center gap-4">
+                                    <span className="w-10 text-sm text-gray-500">{day.dayName}</span>
+                                    <div className="flex-1 h-8 bg-[#1a1a1a] rounded-lg overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(day.minutes / maxDayMinutes) * 100}%` }}
+                                            transition={{ delay: 0.5 + i * 0.05, duration: 0.5 }}
+                                            className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-lg flex items-center justify-end px-2"
+                                        >
+                                            {day.minutes > 0 && (
+                                                <span className="text-xs text-white font-medium">
+                                                    {formatTime(day.minutes)}
+                                                </span>
+                                            )}
+                                        </motion.div>
+                                    </div>
+                                    <span className="w-16 text-right text-xs text-gray-500">
+                                        {day.services} srv
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {/* Top employés */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                            className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <h3 className="font-display font-bold text-lg text-white mb-4">
+                                Top Employés
+                            </h3>
+                            {employeeStats.length === 0 ? (
+                                <p className="text-gray-500 text-sm text-center py-4">Aucun service cette semaine</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {employeeStats.slice(0, 5).map((emp, i) => (
+                                        <div
+                                            key={emp.user_discord_id}
+                                            className="flex items-center gap-3 p-2 rounded-lg bg-[#1a1a1a]"
+                                        >
+                                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                    i === 1 ? 'bg-gray-400/20 text-gray-300' :
+                                                        i === 2 ? 'bg-orange-500/20 text-orange-400' :
+                                                            'bg-[#2a2a2a] text-gray-500'
+                                                }`}>
+                                                {i + 1}
+                                            </span>
+                                            {emp.user_avatar_url ? (
+                                                <img
+                                                    src={emp.user_avatar_url}
+                                                    alt=""
+                                                    className="w-8 h-8 rounded-full"
+                                                />
+                                            ) : (
+                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                                                    <Users className="w-4 h-4 text-gray-500" />
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">{emp.user_name}</p>
+                                                <p className="text-xs text-gray-500">{emp.grade_name}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-white">{formatTime(emp.totalMinutes)}</p>
+                                                <p className="text-xs text-green-400">{formatMoney(emp.totalSalary)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </motion.div>
+
+                        {/* Services en cours */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.6 }}
+                            className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-display font-bold text-lg text-white">
+                                    En service actuellement
+                                </h3>
+                                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-xs">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    {liveServices.length} actif{liveServices.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            {liveServices.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <UserX className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                                    <p className="text-gray-500 text-sm">Personne en service</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {liveServices.map((service) => {
+                                        const start = new Date(service.start_time)
+                                        return (
+                                            <div
+                                                key={service.id}
+                                                className="flex items-center gap-3 p-2 rounded-lg bg-green-500/10 border border-green-500/20"
+                                            >
+                                                {service.user_avatar_url ? (
+                                                    <img
+                                                        src={service.user_avatar_url}
+                                                        alt=""
+                                                        className="w-8 h-8 rounded-full"
+                                                    />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                                                        <UserCheck className="w-4 h-4 text-green-400" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{service.user_name}</p>
+                                                    <p className="text-xs text-gray-500">{service.grade_name}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-gray-400">
+                                                        Depuis {start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </motion.div>
+                    </div>
+                </>
+            )}
         </div>
     )
 }

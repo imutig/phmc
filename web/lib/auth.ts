@@ -1,6 +1,19 @@
 import NextAuth from "next-auth"
 import Discord from "next-auth/providers/discord"
 import { checkDiscordRoles, RoleType } from "@/lib/auth-utils"
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
+
+// Client Supabase pour le logging (lazy init pour éviter erreur au build)
+let supabaseAdmin: SupabaseClient | null = null
+function getSupabaseAdmin(): SupabaseClient | null {
+    if (!supabaseAdmin && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+        )
+    }
+    return supabaseAdmin
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
@@ -31,6 +44,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         const { roles, displayName } = await checkDiscordRoles(account.access_token)
                         token.roles = roles
                         token.displayName = displayName || discordProfile.username || 'Inconnu'
+
+                        // Logger la connexion
+                        getSupabaseAdmin()?.from('session_logs').insert({
+                            user_discord_id: discordProfile.id,
+                            user_name: displayName || discordProfile.username || 'Inconnu',
+                            action: 'login',
+                            metadata: {
+                                roles: roles,
+                                provider: 'discord'
+                            }
+                        }).then(({ error }) => {
+                            if (error) console.error('[Auth] Session log error:', error)
+                        })
+
                     } catch (error) {
                         console.error('[Auth] Error fetching roles at login:', error)
                         token.roles = []
