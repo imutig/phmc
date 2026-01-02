@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { Tooltip } from "@/components/ui/Tooltip"
 import { useToast } from "@/contexts/ToastContext"
+import { SkeletonTable, Skeleton } from "@/components/ui/Skeleton"
 
 interface CareType {
     id: string
@@ -269,8 +270,12 @@ export default function TarifsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            <div className="py-4 md:p-8 space-y-4">
+                <div className="flex items-center gap-3 mb-4">
+                    <Skeleton variant="avatar" />
+                </div>
+                <Skeleton variant="text" className="w-full h-12" />
+                <SkeletonTable rows={6} cols={3} />
             </div>
         )
     }

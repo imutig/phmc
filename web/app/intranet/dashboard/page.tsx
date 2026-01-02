@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { getCurrentISOWeekAndYear, getDateOfISOWeek } from "@/lib/date-utils"
+import { DashboardSkeleton } from "@/components/ui/Skeleton"
 
 interface EmployeeStats {
     user_discord_id: string
@@ -149,12 +150,16 @@ export default function DashboardPage() {
     // Résumé de la semaine
     const weekSummary = useMemo((): WeekSummary => {
         const completedServices = services.filter(s => s.end_time)
+        // Calculer le nombre total d'employés uniques qui ont travaillé
+        const allEmployees = new Set(services.map(s => s.user_discord_id))
+        const activeEmployees = new Set(completedServices.map(s => s.user_discord_id))
+
         return {
             totalMinutes: completedServices.reduce((acc, s) => acc + (s.duration_minutes || 0), 0),
             totalSalary: completedServices.reduce((acc, s) => acc + (s.salary_earned || 0), 0),
             totalServices: completedServices.length,
-            activeEmployees: new Set(completedServices.map(s => s.user_discord_id)).size,
-            totalEmployees: 15, // TODO: Récupérer depuis l'API
+            activeEmployees: activeEmployees.size,
+            totalEmployees: Math.max(allEmployees.size, activeEmployees.size, 1), // Au moins 1
             previousWeekMinutes: 0 // TODO: Récupérer depuis l'API
         }
     }, [services])
@@ -237,9 +242,7 @@ export default function DashboardPage() {
             </div>
 
             {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="w-8 h-8 animate-spin text-red-500" />
-                </div>
+                <DashboardSkeleton />
             ) : (
                 <>
                     {/* KPIs */}
@@ -367,9 +370,9 @@ export default function DashboardPage() {
                                             className="flex items-center gap-3 p-2 rounded-lg bg-[#1a1a1a]"
                                         >
                                             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                                                    i === 1 ? 'bg-gray-400/20 text-gray-300' :
-                                                        i === 2 ? 'bg-orange-500/20 text-orange-400' :
-                                                            'bg-[#2a2a2a] text-gray-500'
+                                                i === 1 ? 'bg-gray-400/20 text-gray-300' :
+                                                    i === 2 ? 'bg-orange-500/20 text-orange-400' :
+                                                        'bg-[#2a2a2a] text-gray-500'
                                                 }`}>
                                                 {i + 1}
                                             </span>

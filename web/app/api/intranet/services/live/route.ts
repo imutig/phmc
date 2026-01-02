@@ -47,8 +47,8 @@ export async function GET() {
         return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const session = await auth()
-    if (!session?.user?.discord_id) {
+    const discordId = authResult.session!.user.discord_id
+    if (!discordId) {
         return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
 
@@ -57,7 +57,7 @@ export async function GET() {
     const { data: service, error } = await supabase
         .from('services')
         .select('*')
-        .eq('user_discord_id', session.user.discord_id)
+        .eq('user_discord_id', discordId)
         .is('end_time', null)
         .order('start_time', { ascending: false })
         .limit(1)
@@ -77,8 +77,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
-    const session = await auth()
-    if (!session?.user?.discord_id) {
+    const discordId = authResult.session!.user.discord_id
+    const userName = authResult.session!.user.displayName || authResult.session!.user.name || 'Inconnu'
+    if (!discordId) {
         return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
     }
 
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     const { data: existing } = await supabase
         .from('services')
         .select('id')
-        .eq('user_discord_id', session.user.discord_id)
+        .eq('user_discord_id', discordId)
         .is('end_time', null)
         .limit(1)
         .maybeSingle()
@@ -107,8 +108,8 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
         .from('services')
         .insert({
-            user_discord_id: session.user.discord_id,
-            user_name: user_name || session.user.name || 'Inconnu',
+            user_discord_id: discordId,
+            user_name: user_name || userName,
             user_avatar_url: user_avatar_url || null,
             grade_name: grade_name || getPrimaryGrade(authResult.roles) || 'ambulancier',
             start_time: now.toISOString(),

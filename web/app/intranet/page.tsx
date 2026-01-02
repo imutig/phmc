@@ -10,6 +10,8 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
+import { ActivityFeed } from "@/components/intranet/ActivityFeed"
+import { DashboardAnalytics } from "@/components/intranet/DashboardAnalytics"
 
 // Types
 interface UserProfile {
@@ -490,9 +492,15 @@ export default function IntranetPage() {
                 {/* Collègues en service */}
                 <ColleaguesWidget />
 
-                {/* Prochain événement */}
-                <NextEventWidget />
+                {/* Activité récente */}
+                <ActivityFeed maxItems={6} />
             </div>
+
+            {/* Analytics Dashboard */}
+            <DashboardAnalytics />
+
+            {/* Prochain événement */}
+            <NextEventWidget />
         </div>
     )
 }

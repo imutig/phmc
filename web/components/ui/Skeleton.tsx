@@ -118,11 +118,27 @@ export function SkeletonServiceCard() {
     )
 }
 
+export function SkeletonPatientCard() {
+    return (
+        <div className="p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg flex items-center gap-4">
+            <SkeletonBase className="w-12 h-12 rounded-full flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+                <SkeletonBase className="h-4 w-1/3" />
+                <SkeletonBase className="h-3 w-1/4" />
+            </div>
+            <div className="flex gap-2">
+                <SkeletonBase className="h-6 w-16 rounded-full" />
+                <SkeletonBase className="h-6 w-12 rounded-full" />
+            </div>
+        </div>
+    )
+}
+
 export function DashboardSkeleton() {
     return (
         <div className="space-y-6">
             {/* Stats cards */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }, (_, i) => (
                     <div key={i} className="p-6 bg-[#141414] border border-[#2a2a2a] rounded-lg">
                         <SkeletonBase className="h-4 w-1/3 mb-3" />
@@ -136,3 +152,4 @@ export function DashboardSkeleton() {
         </div>
     )
 }
+

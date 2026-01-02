@@ -4,9 +4,13 @@ const { createClient } = require('@supabase/supabase-js');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createApplicationChannel, sendApplicationReceivedDM } = require('./services/applicationService');
+const { createAppointmentChannel, sendAppointmentReceivedDM } = require('./services/appointmentService');
 const { createApiServer } = require('./api/server');
 const log = require('./utils/logger');
 const equipeCommand = require('./commands/equipe');
+
+// Garder trace des IDs de rendez-vous déjà traités
+const processedAppointments = new Set();
 
 // Configuration
 const client = new Client({
@@ -64,7 +68,8 @@ for (const file of eventFiles) {
         setupRealtimeListener,
         setupLiveServicesListener,
         checkNewApplications,
-        startApiServer
+        startApiServer,
+        startReminderChecker
     };
 
     if (event.once) {
@@ -182,6 +187,61 @@ function setupRealtimeListener() {
             }
         });
 
+    // Listener pour les rendez-vous
+    supabase
+        .channel('appointments-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'appointments'
+            },
+            async (payload) => {
+                log.realtime(`Nouveau rendez-vous: ${payload.new.id}`);
+
+                // Vérifier si déjà traité
+                if (processedAppointments.has(payload.new.id)) return;
+                processedAppointments.add(payload.new.id);
+
+                // Récupérer les données complètes
+                const { data: appointment, error: appError } = await supabase
+                    .from('appointments')
+                    .select('*')
+                    .eq('id', payload.new.id)
+                    .single();
+
+                if (appError || !appointment) return;
+
+                const { data: patient, error: patientError } = await supabase
+                    .from('patients')
+                    .select('*')
+                    .eq('id', appointment.patient_id)
+                    .single();
+
+                if (patientError || !patient) return;
+
+                // Créer le salon et envoyer le DM
+                const channelId = await createAppointmentChannel(client, supabase, appointment, patient);
+
+                if (channelId) {
+                    log.success(`Salon RDV créé pour ${patient.first_name} ${patient.last_name}`);
+
+                    const dmSent = await sendAppointmentReceivedDM(client, supabase, appointment, patient);
+                    if (dmSent) {
+                        log.discord(`DM envoyé à ${appointment.discord_username}`);
+                    }
+                } else {
+                    log.warn(`Échec création salon RDV - vérifiez /setup appointments`);
+                }
+            }
+        )
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                log.success('Realtime actif - En attente de rendez-vous');
+            }
+        });
+
     return channel;
 }
 
@@ -227,6 +287,128 @@ function startApiServer(clientInstance) {
     } else {
         log.warn('BOT_API_SECRET non configuré - API désactivée');
     }
+}
+
+// Set pour éviter d'envoyer plusieurs rappels pour le même RDV
+const sentReminders = new Set();
+
+// Vérifier les RDV à rappeler (5 min avant)
+async function checkAppointmentReminders() {
+    try {
+        const now = new Date();
+        const fiveMinLater = new Date(now.getTime() + 5 * 60 * 1000);
+        const sixMinLater = new Date(now.getTime() + 6 * 60 * 1000);
+
+        // Récupérer les RDV programmés dans les 5-6 prochaines minutes
+        const { data: appointments, error } = await supabase
+            .from('appointments')
+            .select('*, patients(*)')
+            .eq('status', 'scheduled')
+            .gte('scheduled_date', fiveMinLater.toISOString())
+            .lt('scheduled_date', sixMinLater.toISOString());
+
+        if (error || !appointments) return;
+
+        for (const appointment of appointments) {
+            // Éviter les doublons
+            if (sentReminders.has(appointment.id)) continue;
+            sentReminders.add(appointment.id);
+
+            const scheduledDate = new Date(appointment.scheduled_date);
+            const { EmbedBuilder } = require('discord.js');
+
+            // Rappel au patient
+            try {
+                const patientUser = await client.users.fetch(appointment.discord_id);
+                const patientEmbed = new EmbedBuilder()
+                    .setColor(0xF59E0B)
+                    .setTitle('⏰ Rappel: Rendez-vous dans 5 minutes !')
+                    .setDescription([
+                        `Bonjour,`,
+                        ``,
+                        `Votre rendez-vous est prévu dans **5 minutes**.`,
+                        ``,
+                        `📅 **Date:** ${scheduledDate.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}`,
+                        ``,
+                        `Préparez-vous !`
+                    ].join('\n'))
+                    .setTimestamp();
+
+                await patientUser.send({ embeds: [patientEmbed] });
+                log.info(`Rappel patient envoyé pour RDV ${appointment.id}`);
+            } catch (dmError) {
+                log.warn(`Rappel patient échoué pour ${appointment.id}`);
+            }
+
+            // Rappel au médecin assigné (si différent du patient)
+            if (appointment.assigned_to && appointment.assigned_to !== appointment.discord_id) {
+                try {
+                    const staffUser = await client.users.fetch(appointment.assigned_to);
+                    const patient = appointment.patients;
+                    const patientName = patient ? `${patient.first_name} ${patient.last_name}` : 'Patient';
+
+                    const staffEmbed = new EmbedBuilder()
+                        .setColor(0xF59E0B)
+                        .setTitle('⏰ Rappel: Rendez-vous dans 5 minutes !')
+                        .setDescription([
+                            `Bonjour,`,
+                            ``,
+                            `Votre rendez-vous avec **${patientName}** est prévu dans **5 minutes**.`,
+                            ``,
+                            `📅 **Date:** ${scheduledDate.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}`,
+                            `📋 **Motif:** ${appointment.reason_category || 'Non précisé'}`,
+                        ].join('\n'))
+                        .setTimestamp();
+
+                    await staffUser.send({ embeds: [staffEmbed] });
+                    log.info(`Rappel staff envoyé pour RDV ${appointment.id}`);
+                } catch (dmError) {
+                    log.warn(`Rappel staff échoué pour ${appointment.id}`);
+                }
+            }
+
+            // Message dans le canal Discord du RDV avec ping du staff
+            if (appointment.discord_channel_id) {
+                try {
+                    const channel = await client.channels.fetch(appointment.discord_channel_id);
+                    if (channel) {
+                        const embed = new EmbedBuilder()
+                            .setColor(0xF59E0B)
+                            .setTitle('⏰ Rappel: Rendez-vous dans 5 minutes !')
+                            .setDescription(`Le rendez-vous prévu à ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} commence bientôt !`)
+                            .setTimestamp();
+
+                        // Ping le staff assigné s'il existe
+                        const pingContent = appointment.assigned_to
+                            ? `<@${appointment.assigned_to}> 📢 **Rappel !**`
+                            : '📢 **Rappel !**';
+
+                        await channel.send({ content: pingContent, embeds: [embed] });
+                    }
+                } catch (channelError) {
+                    // Canal supprimé ou inaccessible
+                }
+            }
+        }
+
+        // Nettoyer les anciens rappels (plus de 10 minutes)
+        const twentyMinAgo = new Date(now.getTime() - 20 * 60 * 1000);
+        for (const id of sentReminders) {
+            // On pourrait vérifier en BDD si le RDV est passé, mais ici on garde simple
+            // et on laisse le Set grandir un peu (sera reset au redémarrage)
+        }
+
+    } catch (error) {
+        log.error(`Erreur rappels RDV: ${error.message}`);
+    }
+}
+
+// Démarrer les vérifications de rappel toutes les minutes
+function startReminderChecker() {
+    log.info('Système de rappels RDV activé (vérification chaque minute)');
+    setInterval(checkAppointmentReminders, 60 * 1000);
+    // Vérifier immédiatement au démarrage
+    checkAppointmentReminders();
 }
 
 function checkConfiguration() {

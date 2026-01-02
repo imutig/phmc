@@ -20,7 +20,8 @@ import {
     CalendarDays,
     Menu,
     X,
-    BarChart3
+    BarChart3,
+    UserSearch
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 
@@ -99,6 +100,12 @@ const menuItems = [
         href: "/intranet/ordonnance",
         label: "Ordonnance",
         icon: FileText,
+        roles: [...EMS_GRADES]
+    },
+    {
+        href: "/intranet/patients",
+        label: "Patients",
+        icon: UserSearch,
         roles: [...EMS_GRADES]
     },
     {
@@ -231,6 +238,7 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                             <img
                                 src={userProfile.avatarUrl}
                                 alt={userProfile.displayName}
+                                loading="lazy"
                                 className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-[#2a2a2a]"
                             />
                         ) : (

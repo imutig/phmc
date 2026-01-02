@@ -92,6 +92,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
         week,
         year,
+        services: services || [], // Pour compatibilité avec le dashboard
         employees: Object.values(byUser),
         totals: {
             totalServices: services?.length || 0,

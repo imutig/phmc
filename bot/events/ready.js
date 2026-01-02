@@ -4,7 +4,7 @@ const equipeCommand = require('../commands/equipe');
 module.exports = {
     name: 'ready',
     once: true,
-    async execute(client, { registerCommands, checkConfiguration, setupRealtimeListener, setupLiveServicesListener, checkNewApplications, startApiServer, supabase }) {
+    async execute(client, { registerCommands, checkConfiguration, setupRealtimeListener, setupLiveServicesListener, checkNewApplications, startApiServer, startReminderChecker, supabase }) {
         log.startup();
         log.connected(client.user.tag, client.guilds.cache.size);
 
@@ -26,5 +26,8 @@ module.exports = {
 
         // Démarrer le serveur API
         startApiServer(client);
+
+        // Démarrer le système de rappels de RDV
+        startReminderChecker();
     }
 };
