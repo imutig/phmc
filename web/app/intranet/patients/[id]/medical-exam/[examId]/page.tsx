@@ -4,13 +4,14 @@ import { useState, useEffect, use } from "react";
 import { motion } from "framer-motion";
 import {
     ArrowLeft, ArrowRight, Save, Loader2, CheckCircle, User, Heart,
-    Stethoscope, FileText, Download, Image as ImageIcon
+    Stethoscope, FileText, Download, Image as ImageIcon, Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import { AnimatedDeleteButton } from "@/components/ui/AnimatedButtons";
 
 interface Patient {
     id: string;
@@ -292,6 +293,27 @@ export default function MedicalExamPage({ params }: { params: Promise<{ id: stri
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm("Êtes-vous sûr de vouloir supprimer ce brouillon ?")) return;
+
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/medical-exams/${resolvedParams.examId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                router.push(`/intranet/patients/${resolvedParams.id}?tab=exams`);
+            } else {
+                setError("Erreur lors de la suppression");
+            }
+        } catch (err) {
+            console.error(err);
+            setError("Erreur lors de la suppression");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center">
@@ -315,7 +337,7 @@ export default function MedicalExamPage({ params }: { params: Promise<{ id: stri
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="w-full max-w-[1920px] mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex items-center gap-4">
                     <Link
@@ -334,21 +356,32 @@ export default function MedicalExamPage({ params }: { params: Promise<{ id: stri
                             </p>
                         )}
                     </div>
-                    {isSaving && (
-                        <div className="ml-auto flex items-center gap-2 text-sm text-gray-400">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Sauvegarde...
-                        </div>
-                    )}
+                    {/* Actions Header */}
+                    <div className="ml-auto flex items-center gap-4">
+                        {/* DEBUG: {exam?.status} */}
+                        {(exam?.status === 'draft' || isNewExam) && (
+                            <AnimatedDeleteButton
+                                onClick={handleDelete}
+                                label=""
+                                size="sm"
+                            />
+                        )}
+                        {isSaving && (
+                            <div className="flex items-center gap-2 text-sm text-gray-400">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Sauvegarde...
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Progress Steps */}
                 {currentStep <= 4 && (
-                    <div className="flex items-center justify-between bg-zinc-900/50 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-center w-full bg-zinc-900/50 border border-white/10 rounded-xl p-4">
                         {STEPS.map((step, index) => (
-                            <div key={step.id} className="flex items-center">
+                            <div key={step.id} className={`flex items-center ${index < STEPS.length - 1 ? 'flex-1' : ''}`}>
                                 <div
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${currentStep === step.id
+                                    className={`flex-none flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${currentStep === step.id
                                         ? 'bg-emerald-600 text-white'
                                         : currentStep > step.id
                                             ? 'bg-emerald-600/20 text-emerald-400'
@@ -363,7 +396,7 @@ export default function MedicalExamPage({ params }: { params: Promise<{ id: stri
                                     <span className="text-sm font-medium hidden sm:inline">{step.title}</span>
                                 </div>
                                 {index < STEPS.length - 1 && (
-                                    <div className={`w-8 h-0.5 mx-2 ${currentStep > step.id ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
+                                    <div className={`flex-1 h-0.5 mx-4 ${currentStep > step.id ? 'bg-emerald-500' : 'bg-zinc-700'}`} />
                                 )}
                             </div>
                         ))}

@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
-import { FileText, Plus, Trash2, Loader2, Copy, Check, Printer, Download, History, X } from "lucide-react"
+import { FileText, Plus, Loader2, Copy, Check, Printer, Download, History, X } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { useToast } from "@/contexts/ToastContext"
 import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
 import { toPng } from 'html-to-image'
 import Image from "next/image"
+import { AnimatedDeleteButton } from "@/components/ui/AnimatedButtons"
+import { BouncingLoader, MiniLoader } from "@/components/ui/BouncingLoader"
 
 interface Medication {
     id: string
@@ -177,7 +179,7 @@ export default function OrdonnancePage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+                <BouncingLoader size="md" color="red" />
             </div>
         )
     }
@@ -249,12 +251,11 @@ export default function OrdonnancePage() {
                                     <div key={s.medication.id} className="p-3 bg-black/30 border border-white/5">
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="font-bold text-white">{s.medication.name}</span>
-                                            <button
+                                            <AnimatedDeleteButton
                                                 onClick={() => removeMedication(s.medication.id)}
-                                                className="text-gray-500 hover:text-red-400"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                                size="sm"
+                                                label=""
+                                            />
                                         </div>
                                         <div className="grid gap-2">
                                             <input
@@ -323,7 +324,7 @@ export default function OrdonnancePage() {
                     >
                         {generating ? (
                             <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <MiniLoader />
                                 Génération...
                             </>
                         ) : (

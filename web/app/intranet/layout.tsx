@@ -6,6 +6,7 @@ import { IntranetClientWrapper } from "@/components/intranet/ClientWrapper"
 import { EMS_GRADES } from "@/lib/auth-utils"
 import { SnowEffect } from "@/components/ui/SnowEffect"
 import { GlobalSearch } from "@/components/intranet/GlobalSearch"
+import { DynamicLayout } from "@/components/intranet/DynamicLayout"
 
 // Grades EMS valides pour accéder à l'intranet
 const VALID_INTRANET_ROLES = [...EMS_GRADES, 'recruiter']
@@ -33,18 +34,16 @@ export default async function IntranetLayout({
 
     return (
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
-            <SnowEffect />
-            <GlobalSearch />
-            <Sidebar userRoles={userRoles} />
-            <TopbarWrapper userRoles={userRoles} />
+            <IntranetClientWrapper userData={{ roles: userRoles }}>
+                <SnowEffect />
+                <GlobalSearch />
+                <Sidebar userRoles={userRoles} />
+                <TopbarWrapper userRoles={userRoles} />
 
-            <main className="ml-0 md:ml-[280px] min-h-screen pt-[calc(3.5rem+1rem)] md:pt-20">
-                <div className="max-w-7xl mx-auto px-4 md:px-6">
-                    <IntranetClientWrapper userData={{ roles: userRoles }}>
-                        {children}
-                    </IntranetClientWrapper>
-                </div>
-            </main>
+                <DynamicLayout>
+                    {children}
+                </DynamicLayout>
+            </IntranetClientWrapper>
         </div>
     )
 }

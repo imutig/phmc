@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-    HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield, Loader2,
+    HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield,
     Calendar, MapPin, Clock, Play, Square, ChevronRight, Activity, Timer, Wallet,
     FileEdit, BookOpen
 } from "lucide-react"
@@ -12,6 +12,7 @@ import Image from "next/image"
 import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
 import { ActivityFeed } from "@/components/intranet/ActivityFeed"
 import { DashboardAnalytics } from "@/components/intranet/DashboardAnalytics"
+import { MiniLoader } from "@/components/ui/BouncingLoader"
 
 // Types
 interface UserProfile {
@@ -86,7 +87,7 @@ function ColleaguesWidget() {
 
             {loading ? (
                 <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                    <MiniLoader />
                 </div>
             ) : colleagues.length === 0 ? (
                 <div className="text-center py-6 text-gray-500">
@@ -191,7 +192,7 @@ function UserStatsWidget({ userDiscordId }: { userDiscordId: string }) {
     }
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-onboarding="user-stats">
             {/* Status Service */}
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -434,6 +435,7 @@ export default function IntranetPage() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+                data-onboarding="welcome"
             >
                 <div className="flex items-center gap-4">
                     {profile?.avatarUrl ? (
@@ -453,7 +455,7 @@ export default function IntranetPage() {
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
                             {loading ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                                <MiniLoader />
                             ) : profile?.gradeName ? (
                                 <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-xs font-bold ${roleColors[profile.gradeName] || roleColors["Visiteur"]}`}>
                                     <Shield className="w-3 h-3" />
@@ -465,6 +467,9 @@ export default function IntranetPage() {
                 </div>
             </motion.div>
 
+            {/* Prochain événement */}
+            <NextEventWidget />
+
             {/* Stats utilisateur */}
             {profile && <UserStatsWidget userDiscordId={profile.discordId} />}
 
@@ -475,10 +480,10 @@ export default function IntranetPage() {
                 transition={{ delay: 0.1 }}
             >
                 <h2 className="font-display font-bold text-lg text-white mb-3">Actions rapides</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-onboarding="quick-actions">
                     {quickActions.map((action) => (
                         <Link key={action.href} href={action.href}>
-                            <div className={`p-4 rounded-lg ${action.bg} border border-transparent hover:border-current transition-all group`}>
+                            <div className={`p-4 rounded-lg ${action.bg} border border-transparent hover:border-current transition-all group card-premium`}>
                                 <action.icon className={`w-6 h-6 ${action.color} mb-2 group-hover:scale-110 transition-transform`} />
                                 <p className={`text-sm font-medium ${action.color}`}>{action.label}</p>
                             </div>
@@ -499,8 +504,7 @@ export default function IntranetPage() {
             {/* Analytics Dashboard */}
             <DashboardAnalytics />
 
-            {/* Prochain événement */}
-            <NextEventWidget />
+
         </div>
     )
 }
