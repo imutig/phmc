@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { EmbedBuilder } = require('discord.js');
+const { createAppointmentChannel, sendAppointmentReceivedDM } = require('../services/appointmentService');
 
 /**
  * Crée et démarre le serveur API pour les webhooks du site web
@@ -27,7 +28,7 @@ function createApiServer(client, supabase) {
         res.json({ status: 'ok', bot: client.isReady() ? 'connected' : 'disconnected' });
     });
 
-    // Récupérer le displayName d'un membre du serveur
+    // Récupérer le displayName et le rôle d'un membre du serveur
     app.get('/api/member/:discordId', authenticate, async (req, res) => {
         try {
             const { discordId } = req.params;
@@ -40,10 +41,25 @@ function createApiServer(client, supabase) {
             const guild = await client.guilds.fetch(guildId);
             const member = await guild.members.fetch(discordId);
 
+            // Déterminer le rôle médical
+            const roleNames = member.roles.cache.map(r => r.name.toLowerCase());
+            let role = 'Staff';
+
+            if (roleNames.some(r => r.includes('direction') || r.includes('directeur') || r.includes('directrice'))) {
+                role = 'Direction';
+            } else if (roleNames.some(r => r.includes('chirurgien'))) {
+                role = 'Chirurgien';
+            } else if (roleNames.some(r => r.includes('médecin') || r.includes('medecin'))) {
+                role = 'Médecin';
+            } else if (roleNames.some(r => r.includes('infirmier') || r.includes('infirmière') || r.includes('infirmiere'))) {
+                role = 'Infirmier';
+            }
+
             res.json({
                 displayName: member.displayName,
                 username: member.user.username,
-                nickname: member.nickname
+                nickname: member.nickname,
+                role: role
             });
         } catch (error) {
             console.error('[API] Member fetch error:', error.message);
@@ -392,6 +408,199 @@ function createApiServer(client, supabase) {
             res.json({ success: true });
         } catch (error) {
             console.error('[API] Close error:', error);
+            res.status(500).json({ error: 'Erreur serveur' });
+        }
+    });
+
+    // --- ENDPOINTS RENDEZ-VOUS ---
+
+    // Envoyer un message de RDV (Web -> Discord)
+    app.post('/api/appointment/message', authenticate, async (req, res) => {
+        try {
+            const { appointmentId, channelId, discordId, senderName, senderRole, content } = req.body;
+
+            if (!appointmentId || !discordId || !senderName || !content) {
+                return res.status(400).json({ error: 'Paramètres manquants' });
+            }
+
+            const role = senderRole || 'Staff';
+
+            // 1. Envoyer DM au patient
+            try {
+                const user = await client.users.fetch(discordId);
+                await user.send(`**${senderName}** (${role}): ${content}`);
+            } catch (dmError) {
+                console.error('[API] Appointment DM error:', dmError.message);
+                // On continue même si DM échoue
+            }
+
+            // 2. Poster dans le salon Discord
+            if (channelId) {
+                try {
+                    const channel = await client.channels.fetch(channelId);
+                    if (channel) {
+                        await channel.send(`**${senderName}** (${role}): ${content}`);
+                    }
+                } catch (channelError) {
+                    console.error('[API] Appointment Channel error:', channelError.message);
+                }
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[API] Appointment Message error:', error);
+            res.status(500).json({ error: 'Erreur serveur' });
+        }
+    });
+
+    // Changer le statut d'un RDV
+    app.post('/api/appointment/status', authenticate, async (req, res) => {
+        try {
+            const { channelId, discordId, newStatus, actorName, actorRole, scheduledDate, cancelReason } = req.body;
+
+            if (!channelId || !newStatus || !actorName) {
+                return res.status(400).json({ error: 'Paramètres manquants' });
+            }
+
+            const channel = await client.channels.fetch(channelId);
+            if (!channel) {
+                return res.status(404).json({ error: 'Salon Discord non trouvé' });
+            }
+
+            const statusLabels = {
+                'pending': '⏳ En attente',
+                'scheduled': '📅 Programmé',
+                'completed': '✅ Terminé',
+                'cancelled': '❌ Annulé'
+            };
+
+            const color = newStatus === 'completed' ? 0x22C55E : newStatus === 'cancelled' ? 0xEF4444 : 0x3B82F6;
+            const roleLabel = actorRole || 'Staff';
+
+            // Embed pour le salon Discord
+            const embed = new EmbedBuilder()
+                .setTitle('📋 CHANGEMENT DE STATUT RDV')
+                .setColor(color)
+                .setDescription(`Le statut a été modifié par **${actorName}** (${roleLabel}).`)
+                .addFields({ name: 'Nouveau statut', value: statusLabels[newStatus] || newStatus, inline: false });
+
+            // Ajouter les détails selon le statut
+            if (newStatus === 'scheduled' && scheduledDate) {
+                const date = new Date(scheduledDate);
+                embed.addFields({
+                    name: '📅 Date du rendez-vous',
+                    value: date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
+                    inline: false
+                });
+            }
+            if (newStatus === 'cancelled' && cancelReason) {
+                embed.addFields({ name: '💬 Raison', value: cancelReason, inline: false });
+            }
+            embed.setTimestamp();
+
+            await channel.send({ embeds: [embed] });
+
+            // Envoyer DM au patient si on a son discord_id
+            if (discordId) {
+                try {
+                    const user = await client.users.fetch(discordId);
+
+                    const dmEmbed = new EmbedBuilder()
+                        .setColor(color)
+                        .setTimestamp();
+
+                    if (newStatus === 'scheduled' && scheduledDate) {
+                        const date = new Date(scheduledDate);
+                        dmEmbed.setTitle('📅 Rendez-vous Programmé')
+                            .setDescription([
+                                `Bonjour,`,
+                                ``,
+                                `Votre rendez-vous a été programmé par **${actorName}** (${roleLabel}).`,
+                                ``,
+                                `📅 **Date:** ${date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}`,
+                                ``,
+                                `Merci de votre confiance !`
+                            ].join('\n'));
+                    } else if (newStatus === 'completed') {
+                        dmEmbed.setTitle('✅ Rendez-vous Terminé')
+                            .setDescription([
+                                `Bonjour,`,
+                                ``,
+                                `Votre rendez-vous a été clôturé par **${actorName}** (${roleLabel}).`,
+                                ``,
+                                `Merci pour votre visite au Pillbox Hill Medical Center !`
+                            ].join('\n'));
+                    } else if (newStatus === 'cancelled') {
+                        dmEmbed.setTitle('❌ Rendez-vous Annulé')
+                            .setDescription([
+                                `Bonjour,`,
+                                ``,
+                                `Votre rendez-vous a été annulé par **${actorName}** (${roleLabel}).`,
+                                cancelReason ? `\n💬 **Raison:** ${cancelReason}` : '',
+                                ``,
+                                `Si vous avez des questions, n'hésitez pas à nous contacter.`
+                            ].join('\n'));
+                    }
+
+                    if (dmEmbed.data.title) {
+                        await user.send({ embeds: [dmEmbed] });
+                    }
+                } catch (dmError) {
+                    console.error('[API] DM patient error:', dmError.message);
+                }
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[API] Appointment Status error:', error);
+            res.status(500).json({ error: 'Erreur serveur' });
+        }
+    });
+
+    // Créer un RDV (Web -> Discord)
+    app.post('/api/appointment/create', authenticate, async (req, res) => {
+        try {
+            const { appointmentId } = req.body;
+
+            if (!appointmentId) {
+                return res.status(400).json({ error: 'Paramètres manquants' });
+            }
+
+            // Récupérer le RDV
+            const { data: appointment, error: appError } = await supabase
+                .from('appointments')
+                .select('*')
+                .eq('id', appointmentId)
+                .single();
+
+            if (appError || !appointment) {
+                return res.status(404).json({ error: 'Rendez-vous introuvable' });
+            }
+
+            // Récupérer le patient
+            const { data: patient, error: patientError } = await supabase
+                .from('patients')
+                .select('*')
+                .eq('id', appointment.patient_id)
+                .single();
+
+            if (patientError || !patient) {
+                return res.status(404).json({ error: 'Patient introuvable' });
+            }
+
+            // Créer le salon
+            const channelId = await createAppointmentChannel(client, supabase, appointment, patient);
+
+            if (channelId) {
+                // Envoyer le DM
+                await sendAppointmentReceivedDM(client, supabase, appointment, patient);
+                return res.json({ success: true, channelId });
+            } else {
+                return res.status(500).json({ error: 'Erreur lors de la création du salon Discord' });
+            }
+
+        } catch (error) {
+            console.error('[API] Appointment Create error:', error);
             res.status(500).json({ error: 'Erreur serveur' });
         }
     });

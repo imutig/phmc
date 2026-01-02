@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, X, FileText, Pill, DollarSign, BookOpen, Clock, Settings, ArrowRight, Command } from "lucide-react"
+import { Search, X, FileText, Pill, DollarSign, BookOpen, Clock, Settings, ArrowRight, Command, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface SearchResult {
@@ -36,6 +36,7 @@ export function GlobalSearch() {
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [medications, setMedications] = useState<any[]>([])
     const [tarifs, setTarifs] = useState<any[]>([])
+    const [patients, setPatients] = useState<any[]>([])
     const inputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
 
@@ -64,8 +65,29 @@ export function GlobalSearch() {
         } else {
             setQuery("")
             setSelectedIndex(0)
+            setPatients([])
         }
     }, [isOpen])
+
+    // Rechercher les patients
+    useEffect(() => {
+        if (!query.trim()) {
+            setPatients([])
+            return
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=5`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setPatients(data.patients || [])
+                }
+            } catch (e) { }
+        }, 300)
+
+        return () => clearTimeout(timer)
+    }, [query])
 
     const fetchDynamicData = async () => {
         try {
@@ -98,6 +120,32 @@ export function GlobalSearch() {
             if (page.title.toLowerCase().includes(q) || page.description?.toLowerCase().includes(q)) {
                 matches.push(page)
             }
+        }
+
+        // Ajouter les patients trouvés
+        for (const patient of patients) {
+            matches.push({
+                id: `patient-${patient.id}`,
+                type: 'action',
+                title: `${patient.last_name.toUpperCase()} ${patient.first_name}`,
+                description: `Patient #${patient.fingerprint || '?'} - ${patient.phone || 'Sans téléphone'}`,
+                href: `/intranet/patients/${patient.id}`,
+                icon: User,
+                category: 'Patients'
+            })
+        }
+
+        // Ajouter l'action de création si recherche active
+        if (query.trim()) {
+            matches.push({
+                id: 'new-patient',
+                type: 'action',
+                title: `Créer le patient "${query}"`,
+                description: 'Ouvrir le formulaire de création',
+                href: `/intranet/patients?action=new`,
+                icon: User,
+                category: 'Actions Rapides'
+            })
         }
 
         // Chercher dans les médicaments
@@ -243,8 +291,8 @@ export function GlobalSearch() {
                                                     onClick={() => handleSelect(result)}
                                                     onMouseEnter={() => setSelectedIndex(globalIndex)}
                                                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${globalIndex === selectedIndex
-                                                            ? 'bg-red-500/10'
-                                                            : 'hover:bg-[#1a1a1a]'
+                                                        ? 'bg-red-500/10'
+                                                        : 'hover:bg-[#1a1a1a]'
                                                         }`}
                                                 >
                                                     <result.icon className={`w-5 h-5 ${globalIndex === selectedIndex ? 'text-red-400' : 'text-gray-500'

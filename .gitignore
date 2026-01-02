@@ -7,6 +7,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.db
 
 # === IDE ===
 .idea/
@@ -33,7 +34,6 @@ out/
 # === Misc ===
 *.pem
 .vercel
-.agent
 .turbo
 
 # === Gemini/Claude artifacts ===

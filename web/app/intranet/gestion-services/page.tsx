@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Users, Clock, ChevronLeft, ChevronRight, Calendar, Loader2, BadgeDollarSign, Plus, Trash2, Edit2, Search, AlertCircle, X, Download } from "lucide-react"
+import { SkeletonServiceCard, SkeletonTable } from "@/components/ui/Skeleton"
 import { Modal } from "@/components/ui/Modal"
 import { getCurrentISOWeekAndYear, getDateOfISOWeek, formatTime } from "@/lib/date-utils"
 
@@ -217,8 +218,14 @@ export default function GestionServicesPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+            <div className="py-4 md:py-8 space-y-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="animate-pulse h-8 w-8 bg-zinc-800 rounded-full" />
+                    <div className="animate-pulse h-6 w-48 bg-zinc-800 rounded" />
+                </div>
+                {[1, 2, 3].map(i => (
+                    <SkeletonServiceCard key={i} />
+                ))}
             </div>
         )
     }

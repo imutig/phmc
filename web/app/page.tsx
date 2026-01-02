@@ -293,6 +293,16 @@ function HomeContent() {
                 </button>
               </Link>
             </motion.div>
+            <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/rendez-vous">
+                <button className="px-8 py-4 border border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all font-display font-bold tracking-widest uppercase ripple text-emerald-400">
+                  <span className="flex items-center gap-2">
+                    <HeartPulse className="w-4 h-4" />
+                    Prendre Rendez-vous
+                  </span>
+                </button>
+              </Link>
+            </motion.div>
           </motion.div>
         </motion.div>
 
