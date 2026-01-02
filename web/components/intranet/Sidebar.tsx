@@ -12,7 +12,6 @@ import {
     FileText,
     ChevronLeft,
     Home,
-    LogOut,
     Shield,
     Clock,
     UserCog,
@@ -21,9 +20,11 @@ import {
     Menu,
     X,
     BarChart3,
-    UserSearch
+    UserSearch,
+    HelpCircle
 } from "lucide-react"
-import { signOut } from "next-auth/react"
+import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
+import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
 
 interface SidebarProps {
     userRoles?: string[]
@@ -128,6 +129,26 @@ const menuItems = [
     },
 ]
 
+// Composant bouton Tutoriel
+function TutorialButton({ collapsed }: { collapsed: boolean }) {
+    const { resetOnboarding } = useOnboardingActions()
+
+    return (
+        <button
+            onClick={resetOnboarding}
+            className="w-full flex items-center px-3 py-2 rounded-md text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+            data-onboarding="tutorial-btn"
+        >
+            <HelpCircle className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && (
+                <span className="ml-3 font-sans text-sm font-medium">
+                    Tutoriel
+                </span>
+            )}
+        </button>
+    )
+}
+
 export function Sidebar({ userRoles = [] }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
@@ -198,7 +219,7 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4">
+            <nav className="flex-1 overflow-y-auto py-4" data-onboarding="sidebar-nav">
                 <ul className="space-y-1 px-2">
                     {visibleItems.map((item) => {
                         const isActive = pathname === item.href
@@ -207,12 +228,19 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                                 <Link href={item.href} onClick={() => isMobile && setMobileOpen(false)}>
                                     <div
                                         className={`
-                                        flex items-center px-3 py-2.5 rounded-md transition-colors
+                                        relative flex items-center px-3 py-2.5 rounded-md transition-colors
                                         ${isActive
                                                 ? 'bg-red-500/10 text-red-400'
                                                 : 'text-gray-400 hover:text-white hover:bg-white/5'
                                             }
                                     `}>
+                                        {/* Active indicator bar */}
+                                        {isActive && (
+                                            <div
+                                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] bg-gradient-to-b from-red-500 to-red-400 rounded-r-full"
+                                                style={{ boxShadow: '0 0 12px rgba(220, 38, 38, 0.5)' }}
+                                            />
+                                        )}
                                         <item.icon className="w-5 h-5 flex-shrink-0" />
                                         {(isMobile || !collapsed) && (
                                             <span className="ml-3 font-sans text-sm font-medium">
@@ -227,6 +255,10 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                             </li>
                         )
                     })}
+                    {/* Tutoriel - en bas de la navigation */}
+                    <li className="pt-2 mt-2 border-t border-[#2a2a2a]">
+                        <TutorialButton collapsed={!isMobile && collapsed} />
+                    </li>
                 </ul>
             </nav>
 
@@ -265,26 +297,16 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             )}
 
             {/* Footer */}
-            <div className="p-4 border-t border-[#2a2a2a] space-y-1">
-                <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    className="w-full flex items-center px-3 py-2 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors"
-                >
-                    <LogOut className="w-5 h-5 flex-shrink-0" />
-                    {(isMobile || !collapsed) && (
-                        <span className="ml-3 font-sans text-sm font-medium">
-                            Déconnexion
-                        </span>
-                    )}
-                </button>
+            <div className="p-3 border-t border-[#2a2a2a] flex items-center justify-between">
+                <AnimatedLogoutButton collapsed={!isMobile && collapsed} size="sm" />
 
                 {!isMobile && (
                     <button
                         onClick={() => setCollapsed(!collapsed)}
-                        className="w-full flex items-center justify-center py-2 text-gray-600 hover:text-white transition-colors"
+                        className="p-2 text-gray-600 hover:text-white transition-colors rounded-md hover:bg-white/5"
                     >
                         <motion.div animate={{ rotate: collapsed ? 180 : 0 }}>
-                            <ChevronLeft className="w-5 h-5" />
+                            <ChevronLeft className="w-4 h-4" />
                         </motion.div>
                     </button>
                 )}

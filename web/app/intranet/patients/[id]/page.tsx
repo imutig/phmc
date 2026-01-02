@@ -8,6 +8,7 @@ import {
     CheckCircle, XCircle, Clock, Shield, Stethoscope, Plus, Eye, Download
 } from "lucide-react";
 import Link from "next/link";
+import { BouncingLoader, MiniLoader } from "@/components/ui/BouncingLoader";
 import { useSession } from "next-auth/react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -416,7 +417,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+                <BouncingLoader size="md" color="red" />
             </div>
         );
     }
@@ -757,7 +758,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             {/* Sidebar */}
                             <div className="space-y-6">
                                 <div className="bg-zinc-900/50 border border-white/5 rounded-lg p-6">
-                                    <h2 className="text-sm font-semibold text-gray-400 mb-3">Discord</h2>
+                                    <h2 className="text-sm font-semibold text-gray-400 mb-3">E-Mail</h2>
                                     <p className="text-white font-mono text-sm">
                                         @{patient.discord_username || "Non lié"}
                                     </p>

@@ -6,8 +6,10 @@ import { useRef, ReactNode } from "react";
 interface HorizontalScrollSectionProps {
     children: ReactNode;
     className?: string;
-    /** Multiplicateur de la longueur du scroll horizontal (ex: 3 = 3x la largeur de l'écran) */
+    /** Multiplicateur de la longueur du scroll horizontal (ex: 3 = 3x la largeur de l'écran) - Affecte la durée/vitesse */
     scrollMultiplier?: number;
+    /** Nombre exact de slides pour calculer la translation */
+    slideCount?: number;
 }
 
 /**
@@ -17,7 +19,8 @@ interface HorizontalScrollSectionProps {
 export function HorizontalScrollSection({
     children,
     className = "",
-    scrollMultiplier = 3
+    scrollMultiplier = 3,
+    slideCount = 3 // Valeur par défaut si non spécifié
 }: HorizontalScrollSectionProps) {
     const targetRef = useRef<HTMLDivElement>(null);
 
@@ -26,11 +29,11 @@ export function HorizontalScrollSection({
         offset: ["start start", "end end"]
     });
 
-    // Transforme le scroll vertical (0-1) en déplacement horizontal (0% → -66% pour 3x)
+    // Transforme le scroll vertical (0-1) en déplacement horizontal en vw absolus
     const x = useTransform(
         scrollYProgress,
         [0, 1],
-        ["0%", `-${((scrollMultiplier - 1) / scrollMultiplier) * 100}%`]
+        ["0vw", `-${(slideCount - 1) * 100}vw`]
     );
 
     return (

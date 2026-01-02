@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Plus, Edit2, Trash2, Loader2, MapPin, Clock, Save, X, List, LayoutGrid } from "lucide-react"
+import { Calendar, Plus, Edit2, MapPin, Clock, Save, X, List, LayoutGrid } from "lucide-react"
+import { AnimatedDeleteButton } from "@/components/ui/AnimatedButtons"
+import { BouncingLoader } from "@/components/ui/BouncingLoader"
 import { Modal } from "@/components/ui/Modal"
 import { CalendarView } from "@/components/ui/CalendarView"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
@@ -186,7 +188,7 @@ export default function PlanningPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-red-500" />
+                <BouncingLoader size="md" color="red" />
             </div>
         )
     }
@@ -330,12 +332,11 @@ export default function PlanningPage() {
                                                             >
                                                                 <Edit2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                                                             </button>
-                                                            <button
+                                                            <AnimatedDeleteButton
                                                                 onClick={() => handleDelete(event)}
-                                                                className="p-1.5 md:p-2 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                                            </button>
+                                                                size="sm"
+                                                                label=""
+                                                            />
                                                         </div>
                                                     )}
                                                 </div>
