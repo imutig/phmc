@@ -13,29 +13,18 @@ const GRADE_SALARIES: Record<string, number> = {
     ambulancier: 625
 }
 
-// Arrondir à la prochaine tranche de 15 min APRÈS l'heure donnée
-function roundUpTo15Min(date: Date): Date {
-    const minutes = date.getMinutes()
-    const remainder = minutes % 15
-    if (remainder === 0 && date.getSeconds() === 0 && date.getMilliseconds() === 0) {
-        return date
+// Compte le nombre d'intervalles de 15 minutes TRAVERSÉS entre start et end
+// Ex: 15h23 -> 15h33 = 1 slot (15h30 traversé)
+// Ex: 15h23 -> 15h47 = 2 slots (15h30 et 15h45 traversés)
+function countPaymentSlots(start: Date, end: Date): number {
+    const slotDuration = 15 * 60 * 1000 // 15 min en ms
+    // Premier slot = prochain multiple de 15 min après le début
+    const firstSlot = Math.ceil(start.getTime() / slotDuration) * slotDuration
+    let count = 0
+    for (let t = firstSlot; t <= end.getTime(); t += slotDuration) {
+        count++
     }
-    const rounded = new Date(date)
-    rounded.setMinutes(minutes + (15 - remainder))
-    rounded.setSeconds(0)
-    rounded.setMilliseconds(0)
-    return rounded
-}
-
-// Arrondir à la dernière tranche de 15 min AVANT l'heure donnée
-function roundDownTo15Min(date: Date): Date {
-    const minutes = date.getMinutes()
-    const remainder = minutes % 15
-    const rounded = new Date(date)
-    rounded.setMinutes(minutes - remainder)
-    rounded.setSeconds(0)
-    rounded.setMilliseconds(0)
-    return rounded
+    return count
 }
 
 
@@ -131,7 +120,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ service: data }, { status: 201 })
 }
 
-// PATCH - Terminer un service (avec arrondi aux 15 min)
+// PATCH - Terminer un service (nouvelle logique: heures réelles, slots traversés)
 export async function PATCH(request: Request) {
     const authResult = await requireEmployeeAccess()
     if (!authResult.authorized) {
@@ -171,38 +160,27 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
     }
 
-    // Calculer les heures arrondies
+    // Calculer avec les heures RÉELLES (pas d'arrondi)
     const startTime = new Date(service.start_time)
     const endTime = new Date(end_time)
 
-    const roundedStart = roundUpTo15Min(startTime)
-    const roundedEnd = roundDownTo15Min(endTime)
+    // Durée réelle en minutes
+    const durationMs = endTime.getTime() - startTime.getTime()
+    const durationMinutes = Math.floor(durationMs / (1000 * 60))
 
-    // Vérifier si le service est valide
-    const validDurationMs = roundedEnd.getTime() - roundedStart.getTime()
+    // Nombre de slots = intervalles de 15 min TRAVERSÉS
+    const slotsCount = countPaymentSlots(startTime, endTime)
 
-    if (validDurationMs < 15 * 60 * 1000) {
-        // Supprimer le service car durée insuffisante
-        await supabase.from('services').delete().eq('id', service_id)
-        return NextResponse.json({
-            error: "Service trop court après arrondi - supprimé",
-            deleted: true
-        }, { status: 200 })
-    }
-
-    // Calculer la durée et le salaire
-    const durationMinutes = Math.floor(validDurationMs / (1000 * 60))
-    const slotsCount = Math.floor(durationMinutes / 15)
+    // Calcul du salaire
     const grade = service.grade_name
     const salaryPer15min = GRADE_SALARIES[grade] || 625
     const salaryEarned = slotsCount * salaryPer15min
 
-    // Mettre à jour le service avec les valeurs arrondies
+    // Mettre à jour le service avec les valeurs RÉELLES
     const { data: updated, error: updateError } = await supabase
         .from('services')
         .update({
-            start_time: roundedStart.toISOString(),
-            end_time: roundedEnd.toISOString(),
+            end_time: endTime.toISOString(),
             duration_minutes: durationMinutes,
             slots_count: slotsCount,
             salary_earned: salaryEarned,
@@ -218,11 +196,10 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
         service: updated,
-        rounded: {
-            original_start: startTime.toISOString(),
-            original_end: endTime.toISOString(),
-            rounded_start: roundedStart.toISOString(),
-            rounded_end: roundedEnd.toISOString()
+        info: {
+            duration_minutes: durationMinutes,
+            slots_traversed: slotsCount,
+            salary_earned: salaryEarned
         }
     })
 }
@@ -274,21 +251,16 @@ export async function DELETE(request: Request) {
     } else {
         // Terminer le service maintenant (couper par la direction)
         const endTime = new Date()
-
-        // Réutiliser la logique de PATCH
         const startTime = new Date(service.start_time)
-        const roundedStart = roundUpTo15Min(startTime)
-        const roundedEnd = roundDownTo15Min(endTime)
 
-        const validDurationMs = roundedEnd.getTime() - roundedStart.getTime()
+        // Durée réelle en minutes
+        const durationMs = endTime.getTime() - startTime.getTime()
+        const durationMinutes = Math.floor(durationMs / (1000 * 60))
 
-        if (validDurationMs < 15 * 60 * 1000) {
-            await supabase.from('services').delete().eq('id', service_id)
-            return NextResponse.json({ deleted: true, reason: "Durée insuffisante" })
-        }
+        // Nombre de slots = intervalles de 15 min TRAVERSÉS
+        const slotsCount = countPaymentSlots(startTime, endTime)
 
-        const durationMinutes = Math.floor(validDurationMs / (1000 * 60))
-        const slotsCount = Math.floor(durationMinutes / 15)
+        // Calcul du salaire
         const grade = service.grade_name
         const salaryPer15min = GRADE_SALARIES[grade] || 625
         const salaryEarned = slotsCount * salaryPer15min
@@ -296,8 +268,7 @@ export async function DELETE(request: Request) {
         const { data: updated } = await supabase
             .from('services')
             .update({
-                start_time: roundedStart.toISOString(),
-                end_time: roundedEnd.toISOString(),
+                end_time: endTime.toISOString(),
                 duration_minutes: durationMinutes,
                 slots_count: slotsCount,
                 salary_earned: salaryEarned,
