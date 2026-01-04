@@ -17,31 +17,6 @@ interface LiveService {
     user_discord_id: string
 }
 
-// Arrondir à la prochaine tranche de 15 min APRÈS l'heure donnée
-function roundUpTo15Min(date: Date): Date {
-    const minutes = date.getMinutes()
-    const remainder = minutes % 15
-    if (remainder === 0 && date.getSeconds() === 0 && date.getMilliseconds() === 0) {
-        return date
-    }
-    const rounded = new Date(date)
-    rounded.setMinutes(minutes + (15 - remainder))
-    rounded.setSeconds(0)
-    rounded.setMilliseconds(0)
-    return rounded
-}
-
-// Arrondir à la dernière tranche de 15 min AVANT l'heure donnée
-function roundDownTo15Min(date: Date): Date {
-    const minutes = date.getMinutes()
-    const remainder = minutes % 15
-    const rounded = new Date(date)
-    rounded.setMinutes(minutes - remainder)
-    rounded.setSeconds(0)
-    rounded.setMilliseconds(0)
-    return rounded
-}
-
 // Formater la durée en HH:MM:SS
 function formatDuration(ms: number): string {
     const totalSeconds = Math.floor(ms / 1000)
@@ -128,42 +103,7 @@ export function ServiceButton({ userDiscordId, userName, gradeName, avatarUrl }:
     const stopService = async () => {
         if (!liveService) return
 
-        const startTime = new Date(liveService.start_time)
         const endTime = new Date()
-
-        // Calculer les heures arrondies
-        const roundedStart = roundUpTo15Min(startTime)
-        const roundedEnd = roundDownTo15Min(endTime)
-
-        // Vérifier si le service est valide (au moins 15 min)
-        const validDuration = roundedEnd.getTime() - roundedStart.getTime()
-
-        if (validDuration < 15 * 60 * 1000) {
-            setWarningMessage(`Service trop court après arrondi. 
-Début réel: ${startTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-Fin réelle: ${endTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-
-Après arrondi aux tranches de 15 min:
-Début: ${roundedStart.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-Fin: ${roundedEnd.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-
-Le service sera supprimé sans être comptabilisé.`)
-            setShowWarning(true)
-
-            // Supprimer le service sans le comptabiliser
-            setActionLoading(true)
-            try {
-                await fetch(`/api/intranet/services/live`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ service_id: liveService.id, cancel: true })
-                })
-                setLiveService(null)
-            } finally {
-                setActionLoading(false)
-            }
-            return
-        }
 
         setActionLoading(true)
         try {
@@ -177,7 +117,17 @@ Le service sera supprimé sans être comptabilisé.`)
             })
 
             if (res.ok) {
+                const data = await res.json()
                 setLiveService(null)
+                // Afficher un message de confirmation si le service a été enregistré
+                if (data.service && data.service.slots_count !== undefined) {
+                    if (data.service.slots_count === 0) {
+                        setWarningMessage(`Service enregistré mais aucun intervalle de 15 min traversé. Durée: ${data.service.duration_minutes} min. Salaire: 0$`)
+                    } else {
+                        setWarningMessage(`Service terminé ! Durée: ${data.service.duration_minutes} min. Salaire: ${data.service.salary_earned}$`)
+                    }
+                    setShowWarning(true)
+                }
             } else {
                 const error = await res.json()
                 setWarningMessage(error.error || "Erreur lors de l'arrêt")

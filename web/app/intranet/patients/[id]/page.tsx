@@ -11,6 +11,8 @@ import Link from "next/link";
 import { BouncingLoader, MiniLoader } from "@/components/ui/BouncingLoader";
 import { useSession } from "next-auth/react";
 import { createClient } from "@supabase/supabase-js";
+import { USIGenerator } from "@/components/intranet/USIGenerator";
+import { ClipboardList } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -85,7 +87,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'medical' | 'appointments' | 'exams'>('medical');
+    const [activeTab, setActiveTab] = useState<'medical' | 'appointments' | 'exams' | 'usi'>('medical');
     const [medicalExams, setMedicalExams] = useState<MedicalExam[]>([]);
     const [isLoadingExams, setIsLoadingExams] = useState(false);
 
@@ -519,6 +521,18 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         </div>
                         {activeTab === 'exams' && (
                             <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('usi')}
+                        className={`px-6 py-3 text-sm font-medium transition-colors relative ${activeTab === 'usi' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4" />
+                            USI
+                        </div>
+                        {activeTab === 'usi' && (
+                            <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />
                         )}
                     </button>
                 </div>
@@ -1069,6 +1083,20 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                                     ))}
                                 </div>
                             )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* USI Tab Content */}
+                <AnimatePresence mode="wait">
+                    {activeTab === 'usi' && (
+                        <motion.div
+                            key="usi"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                        >
+                            <USIGenerator patientId={patient.id} patientName={`${patient.first_name} ${patient.last_name}`} />
                         </motion.div>
                     )}
                 </AnimatePresence>
