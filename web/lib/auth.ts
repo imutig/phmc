@@ -41,9 +41,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 // Récupérer les rôles UNE SEULE FOIS à la connexion
                 if (account.access_token) {
                     try {
-                        const { roles, displayName } = await checkDiscordRoles(account.access_token)
+                        const { roles, displayName, avatarUrl } = await checkDiscordRoles(account.access_token)
                         token.roles = roles
                         token.displayName = displayName || discordProfile.username || 'Inconnu'
+
+                        // Créer/mettre à jour l'utilisateur dans la table users
+                        const supabase = getSupabaseAdmin()
+                        if (supabase && discordProfile.id) {
+                            supabase.from('users').upsert({
+                                discord_id: discordProfile.id,
+                                discord_username: displayName || discordProfile.username || 'Inconnu',
+                                avatar_url: avatarUrl || null,
+                                updated_at: new Date().toISOString()
+                            }, {
+                                onConflict: 'discord_id'
+                            }).then(({ error }) => {
+                                if (error) console.error('[Auth] User upsert error:', error)
+                            })
+                        }
 
                         // Logger la connexion
                         getSupabaseAdmin()?.from('session_logs').insert({

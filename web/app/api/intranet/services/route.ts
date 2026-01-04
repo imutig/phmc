@@ -166,3 +166,54 @@ export async function POST(request: Request) {
 
     return NextResponse.json(data, { status: 201 })
 }
+
+// DELETE - Supprimer un service
+export async function DELETE(request: Request) {
+    const authResult = await requireEmployeeAccess()
+    if (!authResult.authorized) {
+        return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+    }
+
+    const session = await auth()
+    if (!session?.user?.discord_id) {
+        return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const serviceId = searchParams.get('id')
+
+    if (!serviceId) {
+        return NextResponse.json({ error: "ID du service requis" }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+
+    // Vérifier que le service appartient à l'utilisateur (sauf direction)
+    const isDirection = authResult.roles.includes('direction')
+
+    const { data: service, error: fetchError } = await supabase
+        .from('services')
+        .select('user_discord_id')
+        .eq('id', serviceId)
+        .single()
+
+    if (fetchError || !service) {
+        return NextResponse.json({ error: "Service non trouvé" }, { status: 404 })
+    }
+
+    // Seul le propriétaire ou la direction peut supprimer
+    if (!isDirection && service.user_discord_id !== session.user.discord_id) {
+        return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
+    }
+
+    const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', serviceId)
+
+    if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+}
