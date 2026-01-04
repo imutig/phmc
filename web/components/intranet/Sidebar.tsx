@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
 import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
+import { IGNModal } from "@/components/intranet/IGNModal"
 
 interface SidebarProps {
     userRoles?: string[]
@@ -34,6 +35,7 @@ interface UserProfile {
     displayName: string
     avatarUrl: string | null
     gradeDisplay: string | null
+    ign?: string | null
 }
 
 // Tous les grades EMS pour l'accès basique
@@ -122,6 +124,12 @@ const menuItems = [
         roles: [...EMS_GRADES, 'recruiter']
     },
     {
+        href: "/intranet/salaires",
+        label: "Salaires",
+        icon: DollarSign,
+        roles: ['direction']
+    },
+    {
         href: "/intranet/permissions",
         label: "Permissions",
         icon: Shield,
@@ -154,6 +162,7 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const pathname = usePathname()
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+    const [ignModalOpen, setIgnModalOpen] = useState(false)
 
     // Fermer le menu mobile lors du changement de page
     useEffect(() => {
@@ -169,7 +178,8 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                     setUserProfile({
                         displayName: data.displayName,
                         avatarUrl: data.avatarUrl,
-                        gradeDisplay: data.gradeDisplay
+                        gradeDisplay: data.gradeDisplay,
+                        ign: data.ign
                     })
                 }
             } catch (e) {
@@ -177,6 +187,19 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             }
         }
         fetchProfile()
+        // Aussi récupérer l'IGN séparément si pas dans le profile
+        async function fetchIgn() {
+            try {
+                const res = await fetch('/api/user/ign')
+                if (res.ok) {
+                    const data = await res.json()
+                    setUserProfile(prev => prev ? { ...prev, ign: data.ign } : prev)
+                }
+            } catch (e) {
+                console.error('Erreur fetch IGN:', e)
+            }
+        }
+        fetchIgn()
     }, [])
 
     // Filtrer les items selon les rôles
@@ -262,16 +285,20 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                 </ul>
             </nav>
 
-            {/* Profil Utilisateur */}
+            {/* Profil Utilisateur - Cliquable pour configurer l'IGN */}
             {userProfile && (
                 <div className={`px-3 py-3 border-t border-[#2a2a2a] ${!isMobile && collapsed ? 'flex justify-center' : ''}`}>
-                    <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIgnModalOpen(true)}
+                        className="flex items-center gap-3 w-full text-left hover:bg-white/5 rounded-lg p-1 -m-1 transition-colors group"
+                        title="Configurer votre nom RP (In-Game)"
+                    >
                         {userProfile.avatarUrl ? (
                             <img
                                 src={userProfile.avatarUrl}
                                 alt={userProfile.displayName}
                                 loading="lazy"
-                                className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-[#2a2a2a]"
+                                className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-[#2a2a2a] group-hover:border-red-500/50 transition-colors"
                             />
                         ) : (
                             <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
@@ -285,14 +312,22 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                                 <p className="font-display font-bold text-sm text-white truncate">
                                     {userProfile.displayName}
                                 </p>
-                                {userProfile.gradeDisplay && (
+                                {userProfile.ign ? (
+                                    <p className="text-xs text-gray-400 truncate">
+                                        🎮 {userProfile.ign}
+                                    </p>
+                                ) : userProfile.gradeDisplay ? (
                                     <p className={`text-xs ${GRADE_COLORS[userProfile.gradeDisplay] || 'text-gray-500'}`}>
                                         {userProfile.gradeDisplay}
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-yellow-500">
+                                        ⚠️ Configurer nom RP
                                     </p>
                                 )}
                             </div>
                         )}
-                    </div>
+                    </button>
                 </div>
             )}
 
@@ -370,6 +405,16 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             >
                 <SidebarContent />
             </motion.aside>
+
+            {/* Modal IGN */}
+            <IGNModal
+                isOpen={ignModalOpen}
+                onClose={() => setIgnModalOpen(false)}
+                currentIgn={userProfile?.ign}
+                onSuccess={(newIgn) => {
+                    setUserProfile(prev => prev ? { ...prev, ign: newIgn } : prev)
+                }}
+            />
         </>
     )
 }

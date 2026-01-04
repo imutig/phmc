@@ -32,9 +32,14 @@ export default async function IntranetLayout({
         redirect("/?error=no_access")
     }
 
+    // Récupérer les permissions granulaires
+    // On importe dynamiquement pour éviter les cycles si possible, ou on utilise l'import existant
+    const { getUserPermissions } = await import("@/lib/auth-utils")
+    const userPermissions = await getUserPermissions(userRoles as any[])
+
     return (
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
-            <IntranetClientWrapper userData={{ roles: userRoles }}>
+            <IntranetClientWrapper userData={{ roles: userRoles }} userPermissions={userPermissions}>
                 <SnowEffect />
                 <GlobalSearch />
                 <Sidebar userRoles={userRoles} />

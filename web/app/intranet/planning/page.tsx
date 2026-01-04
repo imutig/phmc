@@ -36,7 +36,8 @@ export default function PlanningPage() {
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
     const toast = useToast()
-    const { canEdit } = usePermissions() // Utilisation du context centralisé
+    const { checkPermission } = usePermissions()
+    const canEdit = checkPermission('planning.edit')
 
     // Modal
     const [isModalOpen, setIsModalOpen] = useState(false)

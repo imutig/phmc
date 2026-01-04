@@ -8,6 +8,7 @@ const { createAppointmentChannel, sendAppointmentReceivedDM } = require('./servi
 const { createApiServer } = require('./api/server');
 const log = require('./utils/logger');
 const equipeCommand = require('./commands/equipe');
+const { initPointeuseListener } = require('./listeners/pointeuseListener');
 
 // Garder trace des IDs de rendez-vous déjà traités
 const processedAppointments = new Set();
@@ -69,7 +70,8 @@ for (const file of eventFiles) {
         setupLiveServicesListener,
         checkNewApplications,
         startApiServer,
-        startReminderChecker
+        startReminderChecker,
+        initPointeuseListener
     };
 
     if (event.once) {
@@ -83,14 +85,14 @@ async function registerCommands(clientInstance) {
     const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
     try {
-        log.info('Enregistrement des slash commands...');
+        log.info(`Enregistrement de ${commands.length} slash commands pour la guilde ${process.env.DISCORD_GUILD_ID}...`);
 
         await rest.put(
             Routes.applicationGuildCommands(clientInstance.user.id, process.env.DISCORD_GUILD_ID),
             { body: commands }
         );
 
-        log.success('Slash commands enregistrées');
+        log.success('Slash commands enregistrées avec succès !');
     } catch (error) {
         log.error(`Erreur enregistrement commandes: ${error.message}`);
     }

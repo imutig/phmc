@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { useToast } from "@/contexts/ToastContext"
 import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
+import { usePermissions } from "@/components/intranet/ClientWrapper"
 
 interface MedicationCategory {
     id: string
@@ -36,8 +37,9 @@ export default function MedicamentsPage() {
     const toast = useToast()
     const { fireSuccess } = useConfirmAnimation()
 
-    // Permissions : seuls direction/supervision peuvent éditer
-    const [canEdit, setCanEdit] = useState(false)
+    // Permissions granulaires via le contexte
+    const { checkPermission } = usePermissions()
+    const canEdit = checkPermission('medications.edit')
 
     // Modals
     const [isAddOpen, setIsAddOpen] = useState(false)
@@ -54,20 +56,9 @@ export default function MedicamentsPage() {
 
     useEffect(() => {
         fetchMedications()
-        fetchPermissions()
     }, [])
 
-    const fetchPermissions = async () => {
-        try {
-            const res = await fetch('/api/user/roles')
-            if (res.ok) {
-                const data = await res.json()
-                setCanEdit(data.roles?.includes('direction') || data.roles?.includes('supervision'))
-            }
-        } catch (error) {
-            console.error('Erreur récupération permissions:', error)
-        }
-    }
+
 
     const fetchMedications = async () => {
         try {

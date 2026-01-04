@@ -126,47 +126,32 @@ async function handleServiceEnd(interaction, supabase) {
         const now = new Date();
         const startTime = new Date(service.start_time);
 
-        // Arrondir aux 15 minutes
-        const roundUpTo15Min = (date) => {
-            const minutes = date.getMinutes();
-            const remainder = minutes % 15;
-            if (remainder === 0 && date.getSeconds() === 0) return date;
-            const rounded = new Date(date);
-            rounded.setMinutes(minutes + (15 - remainder));
-            rounded.setSeconds(0);
-            rounded.setMilliseconds(0);
-            return rounded;
+        // Calculer la durée réelle en minutes
+        const durationMs = now.getTime() - startTime.getTime();
+        const durationMinutes = Math.floor(durationMs / (1000 * 60));
+
+        // Nouvelle logique : compter les intervalles de 15 min TRAVERSÉS
+        // Ex: 15h23 → 15h33 = 1 slot (15h30 traversé)
+        // Ex: 15h23 → 15h47 = 2 slots (15h30 et 15h45 traversés)
+        const countPaymentSlots = (start, end) => {
+            const slotDuration = 15 * 60 * 1000; // 15 min en ms
+            // Premier intervalle de 15 min après le début
+            const firstSlot = Math.ceil(start.getTime() / slotDuration) * slotDuration;
+            let count = 0;
+            for (let t = firstSlot; t <= end.getTime(); t += slotDuration) {
+                count++;
+            }
+            return count;
         };
 
-        const roundDownTo15Min = (date) => {
-            const minutes = date.getMinutes();
-            const remainder = minutes % 15;
-            const rounded = new Date(date);
-            rounded.setMinutes(minutes - remainder);
-            rounded.setSeconds(0);
-            rounded.setMilliseconds(0);
-            return rounded;
-        };
-
-        const roundedStart = roundUpTo15Min(startTime);
-        const roundedEnd = roundDownTo15Min(now);
-        const validDurationMs = roundedEnd.getTime() - roundedStart.getTime();
-
-        if (validDurationMs < 15 * 60 * 1000) {
-            await supabase.from('services').delete().eq('id', service.id);
-            return interaction.reply({ content: '🗑️ **Service annulé** (durée insuffisante < 15min).', flags: 64 });
-        }
-
-        const durationMinutes = Math.floor(validDurationMs / (1000 * 60));
-        const slotsCount = Math.floor(durationMinutes / 15);
+        const slotsCount = countPaymentSlots(startTime, now);
         const salaryPer15min = GRADE_SALARIES[service.grade_name]?.perSlot || 625;
         const salaryEarned = slotsCount * salaryPer15min;
 
         const { error } = await supabase
             .from('services')
             .update({
-                start_time: roundedStart.toISOString(),
-                end_time: roundedEnd.toISOString(),
+                end_time: now.toISOString(),
                 duration_minutes: durationMinutes,
                 slots_count: slotsCount,
                 salary_earned: salaryEarned,
@@ -178,8 +163,12 @@ async function handleServiceEnd(interaction, supabase) {
             return interaction.reply({ content: '❌ Erreur: ' + error.message, flags: 64 });
         }
 
+        const salaryMsg = slotsCount > 0
+            ? `💰 ${slotsCount} versement${slotsCount > 1 ? 's' : ''} = $${salaryEarned.toLocaleString()}`
+            : '💰 Aucun versement (service trop court)';
+
         await interaction.reply({
-            content: `✅ **Service terminé !**\n⏱️ ${formatDuration(durationMinutes)} • 💰 $${salaryEarned.toLocaleString()}`,
+            content: `✅ **Service terminé !**\n⏱️ ${formatDuration(durationMinutes)} • ${salaryMsg}`,
             flags: 64
         });
     } catch (error) {

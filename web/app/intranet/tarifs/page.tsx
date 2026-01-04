@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { Tooltip } from "@/components/ui/Tooltip"
 import { useToast } from "@/contexts/ToastContext"
 import { SkeletonTable, Skeleton } from "@/components/ui/Skeleton"
+import { usePermissions } from "@/components/intranet/ClientWrapper"
 
 interface CareType {
     id: string
@@ -40,8 +41,9 @@ export default function TarifsPage() {
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
     const toast = useToast()
 
-    // Permissions : seuls direction/supervision peuvent éditer
-    const [canEdit, setCanEdit] = useState(false)
+    // Permissions granulaires via le contexte
+    const { checkPermission } = usePermissions()
+    const canEdit = checkPermission('tarifs.edit')
 
     // Modals
     const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
@@ -57,7 +59,6 @@ export default function TarifsPage() {
 
     useEffect(() => {
         fetchCategories()
-        fetchPermissions()
         fetchFavorites()
     }, [])
 
@@ -99,18 +100,7 @@ export default function TarifsPage() {
         }
     }
 
-    const fetchPermissions = async () => {
-        try {
-            const res = await fetch('/api/user/roles')
-            if (res.ok) {
-                const data = await res.json()
-                // Seuls direction et supervision peuvent éditer
-                setCanEdit(data.roles?.includes('direction') || data.roles?.includes('supervision'))
-            }
-        } catch (error) {
-            console.error('Erreur récupération permissions:', error)
-        }
-    }
+
 
     const fetchCategories = async () => {
         try {

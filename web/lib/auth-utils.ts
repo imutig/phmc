@@ -69,8 +69,12 @@ export async function checkDiscordRoles(accessToken: string): Promise<RoleCheckR
 
     if (!guildId) {
         console.error('[Auth] Guild ID not configured')
+        console.log('[Auth Debug] process.env.DISCORD_GUILD_ID:', process.env.DISCORD_GUILD_ID)
+        console.log('[Auth Debug] guildConfig from DB:', guildConfig)
         return { roles: [], discordRoles: [], error: 'Guild ID non configuré' }
     }
+
+    console.log('[Auth Debug] Using Guild ID:', guildId)
 
     try {
         const response = await fetch(
@@ -108,9 +112,12 @@ export async function checkDiscordRoles(accessToken: string): Promise<RoleCheckR
             const userRoleTypes: Set<RoleType> = new Set()
             for (const config of roleConfig) {
                 if (userDiscordRoles.includes(config.discord_role_id)) {
+                    console.log(`[Auth Debug] Match found: ${config.role_type} for role ${config.discord_role_id}`)
                     userRoleTypes.add(config.role_type as RoleType)
                 }
             }
+            console.log('[Auth Debug] User Discord Roles:', userDiscordRoles)
+            console.log('[Auth Debug] DB Role Config:', roleConfig)
             if (userRoleTypes.has('direction')) userRoleTypes.add('recruiter')
             const displayName = memberData.nick || memberData.user?.global_name || memberData.user?.username || 'Inconnu'
             const discordId = memberData.user?.id
@@ -345,4 +352,26 @@ export async function requirePermission(permissionKey: string) {
  */
 export function invalidatePermissionsCache() {
     permissionsCache = null
+}
+
+/**
+ * Récupère toutes les permissions actives pour un set de rôles
+ */
+export async function getUserPermissions(userRoles: RoleType[]): Promise<Record<string, boolean>> {
+    // Direction a toujours tout
+    if (userRoles.includes('direction')) {
+        const allPerms: Record<string, boolean> = {}
+        ALL_PERMISSIONS.forEach(p => allPerms[p.key] = true)
+        return allPerms
+    }
+
+    // Trouver le grade principal
+    const primaryGrade = getPrimaryGrade(userRoles)
+    if (!primaryGrade) return {}
+
+    // Récupérer la map des permissions
+    const permissionsMap = await getPermissionsMap()
+
+    // Retourner les permissions de ce grade
+    return permissionsMap[primaryGrade] || {}
 }

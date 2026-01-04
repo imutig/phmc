@@ -45,7 +45,8 @@ function WikiContent() {
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null)
     const toast = useToast()
-    const { canEdit } = usePermissions() // Utilisation du context centralisé
+    const { checkPermission } = usePermissions()
+    const canEdit = checkPermission('wiki.edit')
     const { fireSuccess } = useConfirmAnimation()
 
     // Modal states
