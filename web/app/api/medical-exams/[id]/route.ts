@@ -26,6 +26,7 @@ export async function GET(
             .from('medical_exams')
             .select('*, patients(*)')
             .eq('id', id)
+            .is('deleted_at', null)
             .single()
 
         if (error || !exam) {
@@ -60,6 +61,14 @@ export async function PATCH(
         const body = await request.json()
         const supabase = await createClient()
 
+        // Récupérer l'ancienne valeur pour l'audit
+        const { data: oldData } = await supabase
+            .from('medical_exams')
+            .select('*')
+            .eq('id', id)
+            .is('deleted_at', null)
+            .single()
+
         // Mettre à jour l'examen
         const { data: exam, error } = await supabase
             .from('medical_exams')
@@ -72,6 +81,18 @@ export async function PATCH(
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: session.user.discord_id,
+            actorName: getDisplayName(session.user),
+            action: 'update',
+            tableName: 'medical_exams',
+            recordId: id,
+            oldData: oldData || undefined,
+            newData: exam
+        })
+
         return NextResponse.json(exam)
 
     } catch (error) {
@@ -80,7 +101,7 @@ export async function PATCH(
     }
 }
 
-// DELETE /api/medical-exams/[id] - Supprimer un brouillon
+// DELETE /api/medical-exams/[id] - Supprimer un brouillon - Soft Delete
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -99,11 +120,12 @@ export async function DELETE(
 
         const supabase = await createClient()
 
-        // Vérifier que c'est un brouillon
+        // Vérifier que c'est un brouillon et récupérer les données
         const { data: exam, error: fetchError } = await supabase
             .from('medical_exams')
-            .select('status')
+            .select('*')
             .eq('id', id)
+            .is('deleted_at', null)
             .single()
 
         if (fetchError || !exam) {
@@ -114,14 +136,26 @@ export async function DELETE(
             return NextResponse.json({ error: "Impossible de supprimer un examen finalisé" }, { status: 400 })
         }
 
+        // Soft delete
         const { error: deleteError } = await supabase
             .from('medical_exams')
-            .delete()
+            .update({ deleted_at: new Date().toISOString() })
             .eq('id', id)
 
         if (deleteError) {
             return NextResponse.json({ error: deleteError.message }, { status: 500 })
         }
+
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: session.user.discord_id,
+            actorName: getDisplayName(session.user),
+            action: 'delete',
+            tableName: 'medical_exams',
+            recordId: id,
+            oldData: exam
+        })
 
         return NextResponse.json({ success: true })
 

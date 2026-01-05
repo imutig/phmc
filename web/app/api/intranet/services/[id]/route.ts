@@ -3,7 +3,7 @@ import { requireEmployeeAccess } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 
-// DELETE - Supprimer un service (propriétaire ou direction)
+// DELETE - Supprimer un service (propriétaire ou direction) - Soft Delete
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -24,8 +24,9 @@ export async function DELETE(
     // Vérifier que le service appartient à l'utilisateur (sauf direction)
     const { data: service } = await supabase
         .from('services')
-        .select('user_discord_id')
+        .select('*')
         .eq('id', id)
+        .is('deleted_at', null)
         .single()
 
     if (!service) {
@@ -39,14 +40,26 @@ export async function DELETE(
         return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
     }
 
+    // Soft delete au lieu de hard delete
     const { error } = await supabase
         .from('services')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: session.user.discord_id,
+        actorName: getDisplayName(session.user),
+        action: 'delete',
+        tableName: 'services',
+        recordId: id,
+        oldData: service
+    })
 
     return NextResponse.json({ success: true })
 }

@@ -6,6 +6,8 @@ import { Search, User, Phone, Calendar, ChevronRight, Loader2, UserPlus } from "
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { SkeletonPatientCard } from "@/components/ui/Skeleton";
+import { useToast } from "@/contexts/ToastContext";
+import { useDebounce } from "@/hooks";
 
 interface Patient {
     id: string;
@@ -20,10 +22,11 @@ interface Patient {
 
 export default function PatientsPage() {
     const searchParams = useSearchParams();
+    const toast = useToast();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [search, setSearch] = useState("");
     const [isLoading, setIsLoading] = useState(true);
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const debouncedSearch = useDebounce(search, 300);
     const [showNewPatientModal, setShowNewPatientModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [newPatientData, setNewPatientData] = useState({
@@ -47,25 +50,20 @@ export default function PatientsPage() {
             if (response.ok) {
                 setShowNewPatientModal(false);
                 setNewPatientData({ firstName: "", lastName: "", birthDate: "", fingerprint: "", phone: "" });
-                fetchPatients(); // Refresh list
+                toast.success("Patient créé avec succès");
+                fetchPatients();
             } else {
-                alert(data.error || "Erreur lors de la création");
+                toast.error(data.error || "Erreur lors de la création");
             }
         } catch (error) {
             console.error("Error creating patient:", error);
-            alert("Erreur lors de la création");
+            toast.error("Erreur lors de la création");
         } finally {
             setIsCreating(false);
         }
     };
 
-    // Debounce search
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [search]);
+
 
     const fetchPatients = useCallback(async () => {
         setIsLoading(true);

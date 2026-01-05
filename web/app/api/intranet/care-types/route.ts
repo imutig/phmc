@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { requireEmployeeAccess, requireEditorAccess } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
+import { validateBody, CareTypeSchema } from "@/lib/validations"
 
 // GET - Récupérer tous les types de soins
 export async function GET() {
@@ -17,6 +18,7 @@ export async function GET() {
             *,
             care_categories (name)
         `)
+        .is('deleted_at', null)
         .order('name', { ascending: true })
 
     if (error) {
@@ -34,11 +36,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { category_id, name, price, description } = body
 
-    if (!category_id || !name || price === undefined) {
-        return NextResponse.json({ error: "category_id, name et price sont requis" }, { status: 400 })
+    // Validation Zod
+    const validation = validateBody(CareTypeSchema, body)
+    if (!validation.success) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+
+    const { category_id, name, price, description } = validation.data
 
     const supabase = await createClient()
 
@@ -51,6 +56,17 @@ export async function POST(request: Request) {
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'create',
+        tableName: 'care_types',
+        recordId: data.id,
+        newData: data
+    })
 
     return NextResponse.json(data, { status: 201 })
 }

@@ -141,6 +141,24 @@ export async function POST() {
             }
         }
 
+        // Audit log for bulk import
+        if (addedMembers.length > 0) {
+            const { logAudit } = await import('@/lib/audit')
+            const { auth } = await import('@/lib/auth')
+            const session = await auth()
+            await logAudit({
+                actorDiscordId: session?.user?.discord_id || 'admin',
+                actorName: session?.user?.name || undefined,
+                action: 'create',
+                tableName: 'users',
+                newData: {
+                    action: 'bulk_import_from_discord',
+                    count: addedMembers.length,
+                    imported: addedMembers.map(m => ({ discordId: m.discordId, grade: m.grade }))
+                }
+            })
+        }
+
         return NextResponse.json({
             success: true,
             message: `${addedMembers.length} nouveaux membres ajoutés`,

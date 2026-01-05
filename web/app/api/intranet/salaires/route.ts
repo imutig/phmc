@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         const { data: services, error } = await supabase
             .from('services')
             .select('*')
+            .is('deleted_at', null)
             .eq('week_number', targetWeek)
             .eq('year', targetYear)
             .not('end_time', 'is', null)

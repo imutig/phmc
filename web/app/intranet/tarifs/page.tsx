@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DollarSign, Plus, Edit2, Trash2, Calculator, X, Loader2, ChevronDown, ChevronUp, Search, Star } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { Tooltip } from "@/components/ui/Tooltip"
 import { useToast } from "@/contexts/ToastContext"
@@ -56,6 +57,8 @@ export default function TarifsPage() {
     const [formName, setFormName] = useState("")
     const [formDescription, setFormDescription] = useState("")
     const [formPrice, setFormPrice] = useState("")
+    const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+    const [deletingCareTypeId, setDeletingCareTypeId] = useState<string | null>(null)
 
     useEffect(() => {
         fetchCategories()
@@ -185,10 +188,12 @@ export default function TarifsPage() {
         }
     }
 
-    const handleDeleteCategory = async (id: string) => {
-        if (!confirm('Supprimer cette catégorie et tous ses soins ?')) return
-        await fetch(`/api/intranet/care-categories/${id}`, { method: 'DELETE' })
+    const handleDeleteCategory = async () => {
+        if (!deletingCategoryId) return
+        await fetch(`/api/intranet/care-categories/${deletingCategoryId}`, { method: 'DELETE' })
+        toast.success("Catégorie supprimée !")
         fetchCategories()
+        setDeletingCategoryId(null)
     }
 
     const handleAddCareType = async () => {
@@ -227,10 +232,12 @@ export default function TarifsPage() {
         }
     }
 
-    const handleDeleteCareType = async (id: string) => {
-        if (!confirm('Supprimer ce type de soin ?')) return
-        await fetch(`/api/intranet/care-types/${id}`, { method: 'DELETE' })
+    const handleDeleteCareType = async () => {
+        if (!deletingCareTypeId) return
+        await fetch(`/api/intranet/care-types/${deletingCareTypeId}`, { method: 'DELETE' })
+        toast.success("Soin supprimé !")
         fetchCategories()
+        setDeletingCareTypeId(null)
     }
 
     const resetForm = () => {
@@ -372,7 +379,7 @@ export default function TarifsPage() {
                                                 <Edit2 className="w-3.5 md:w-4 h-3.5 md:h-4" />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteCategory(category.id)}
+                                                onClick={() => setDeletingCategoryId(category.id)}
                                                 className="p-1.5 md:p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors hidden sm:block"
                                             >
                                                 <Trash2 className="w-3.5 md:w-4 h-3.5 md:h-4" />
@@ -435,7 +442,7 @@ export default function TarifsPage() {
                                                                             <Edit2 className="w-3.5 md:w-4 h-3.5 md:h-4" />
                                                                         </button>
                                                                         <button
-                                                                            onClick={() => handleDeleteCareType(care.id)}
+                                                                            onClick={() => setDeletingCareTypeId(care.id)}
                                                                             className="p-1 text-gray-400 hover:text-red-400"
                                                                         >
                                                                             <Trash2 className="w-3.5 md:w-4 h-3.5 md:h-4" />
@@ -682,6 +689,28 @@ export default function TarifsPage() {
                     />
                 </div>
             </Modal>
+
+            {/* Modal de confirmation suppression catégorie */}
+            <ConfirmModal
+                isOpen={!!deletingCategoryId}
+                onClose={() => setDeletingCategoryId(null)}
+                onConfirm={handleDeleteCategory}
+                title="Supprimer cette catégorie ?"
+                message="Cette action est irréversible. La catégorie et tous ses soins seront définitivement supprimés."
+                confirmText="Supprimer"
+                variant="danger"
+            />
+
+            {/* Modal de confirmation suppression soin */}
+            <ConfirmModal
+                isOpen={!!deletingCareTypeId}
+                onClose={() => setDeletingCareTypeId(null)}
+                onConfirm={handleDeleteCareType}
+                title="Supprimer ce soin ?"
+                message="Cette action est irréversible. Le soin sera définitivement supprimé."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </div>
     )
 }

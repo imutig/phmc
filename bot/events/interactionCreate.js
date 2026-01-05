@@ -10,6 +10,7 @@ const {
     handleConvocationAbsenceModal
 } = require('../handlers/buttonHandlers');
 const factureCommand = require('../commands/facture');
+const evenementCommand = require('../commands/evenement');
 const serviceHandlers = require('../handlers/serviceHandlers');
 const rdvHandlers = require('../handlers/rdvHandlers');
 const log = require('../utils/logger');
@@ -191,6 +192,12 @@ async function handleModalInteraction(interaction, supabase) {
         if (customId.startsWith('rdv_schedule_modal_')) {
             const appointmentId = customId.replace('rdv_schedule_modal_', '');
             return await rdvHandlers.handleScheduleModal(interaction, supabase, appointmentId);
+        }
+
+        // Evenement create
+        if (customId === 'evenement_create') {
+            interaction.supabase = supabase;
+            return await evenementCommand.handleModalSubmit(interaction);
         }
 
     } catch (error) {

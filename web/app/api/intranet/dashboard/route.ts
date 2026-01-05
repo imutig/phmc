@@ -24,6 +24,7 @@ export async function GET(request: Request) {
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
+        .is('deleted_at', null)
         .gte('service_date', startDate.toISOString().split('T')[0])
         .order('service_date', { ascending: true })
 

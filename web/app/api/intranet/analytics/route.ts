@@ -59,6 +59,7 @@ export async function GET() {
             supabase
                 .from('services')
                 .select('id, duration_minutes, salary_earned, grade_name, user_name, end_time')
+                .is('deleted_at', null)
                 .eq('week_number', week)
                 .eq('year', year)
                 .not('end_time', 'is', null),
@@ -67,6 +68,7 @@ export async function GET() {
             supabase
                 .from('services')
                 .select('id, user_name, grade_name, start_time, user_avatar_url')
+                .is('deleted_at', null)
                 .is('end_time', null),
 
             // Dernières activités (mix RDV + Services)

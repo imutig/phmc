@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Users, Clock, ChevronLeft, ChevronRight, Calendar, Loader2, BadgeDollarSign, Plus, Trash2, Edit2, Search, AlertCircle, X, Download } from "lucide-react"
 import { SkeletonServiceCard, SkeletonTable } from "@/components/ui/Skeleton"
 import { Modal } from "@/components/ui/Modal"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { getCurrentISOWeekAndYear, getDateOfISOWeek, formatTime } from "@/lib/date-utils"
 
 interface Service {
@@ -86,6 +87,10 @@ export default function GestionServicesPage() {
     const [editStartTime, setEditStartTime] = useState("09:00")
     const [editEndTime, setEditEndTime] = useState("12:00")
 
+    // Confirmation modals
+    const [cuttingServiceId, setCuttingServiceId] = useState<string | null>(null)
+    const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null)
+
     useEffect(() => {
         fetchData()
         fetchLiveServices()
@@ -127,14 +132,14 @@ export default function GestionServicesPage() {
         }
     }
 
-    const handleCutService = async (serviceId: string) => {
-        if (!confirm('Couper ce service maintenant ?')) return
-        setCuttingService(serviceId)
+    const handleCutService = async () => {
+        if (!cuttingServiceId) return
+        setCuttingService(cuttingServiceId)
         try {
             const res = await fetch('/api/intranet/services/live', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ service_id: serviceId, cancel: false })
+                body: JSON.stringify({ service_id: cuttingServiceId, cancel: false })
             })
             if (res.ok) {
                 fetchLiveServices()
@@ -144,6 +149,7 @@ export default function GestionServicesPage() {
             console.error('Erreur coupure service:', e)
         } finally {
             setCuttingService(null)
+            setCuttingServiceId(null)
         }
     }
 
@@ -187,13 +193,15 @@ export default function GestionServicesPage() {
         }
     }
 
-    const handleDeleteService = async (serviceId: string) => {
-        if (!confirm('Supprimer ce service ?')) return
+    const handleDeleteService = async () => {
+        if (!deletingServiceId) return
         try {
-            await fetch(`/api/intranet/services/admin?id=${serviceId}`, { method: 'DELETE' })
+            await fetch(`/api/intranet/services/admin?id=${deletingServiceId}`, { method: 'DELETE' })
             fetchData()
         } catch (e) {
             console.error('Erreur suppression:', e)
+        } finally {
+            setDeletingServiceId(null)
         }
     }
 
@@ -434,7 +442,7 @@ export default function GestionServicesPage() {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleCutService(service.id)}
+                                        onClick={() => setCuttingServiceId(service.id)}
                                         disabled={cuttingService === service.id}
                                         className="px-3 py-1.5 text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50"
                                     >
@@ -531,7 +539,7 @@ export default function GestionServicesPage() {
                                                         <Edit2 className="w-3 h-3" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDeleteService(service.id)}
+                                                        onClick={() => setDeletingServiceId(service.id)}
                                                         className="p-1 text-gray-600 hover:text-red-400"
                                                     >
                                                         <Trash2 className="w-3 h-3" />
@@ -674,6 +682,28 @@ export default function GestionServicesPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Modal de confirmation couper service */}
+            <ConfirmModal
+                isOpen={!!cuttingServiceId}
+                onClose={() => setCuttingServiceId(null)}
+                onConfirm={handleCutService}
+                title="Couper ce service ?"
+                message="Le service en cours de l'employé sera terminé maintenant et compté dans son total."
+                confirmText="Couper"
+                variant="warning"
+            />
+
+            {/* Modal de confirmation supprimer service */}
+            <ConfirmModal
+                isOpen={!!deletingServiceId}
+                onClose={() => setDeletingServiceId(null)}
+                onConfirm={handleDeleteService}
+                title="Supprimer ce service ?"
+                message="Cette action est irréversible. Le service sera définitivement supprimé."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </div>
     )
 }

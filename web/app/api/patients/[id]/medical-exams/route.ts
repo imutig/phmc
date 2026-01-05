@@ -26,6 +26,7 @@ export async function GET(
             .from('medical_exams')
             .select('*')
             .eq('patient_id', patientId)
+            .is('deleted_at', null)
             .order('created_at', { ascending: false })
 
         if (error) {
@@ -70,22 +71,66 @@ export async function POST(
             return NextResponse.json({ error: "Patient introuvable" }, { status: 404 })
         }
 
-        // Créer l'examen en brouillon
+        // Get form data from request body
+        const body = await request.json().catch(() => ({}))
+
+        // Créer la visite avec toutes les données
         const { data: exam, error: createError } = await supabase
             .from('medical_exams')
             .insert({
                 patient_id: patientId,
                 created_by: session.user.discord_id,
                 created_by_name: session.user.name || session.user.discord_username,
-                status: 'draft',
-                visit_date: new Date().toISOString().split('T')[0]
+                status: body.status || 'completed',
+                visit_date: body.visit_date || new Date().toISOString().split('T')[0],
+                visit_type: body.visit_type || null,
+                profession: body.profession || null,
+                employer: body.employer || null,
+                personal_history: body.personal_history || null,
+                family_history: body.family_history || null,
+                allergies: body.allergies || false,
+                allergies_details: body.allergies_details || null,
+                current_treatment: body.current_treatment || null,
+                tobacco: body.tobacco || false,
+                alcohol: body.alcohol || false,
+                sleep_quality: body.sleep_quality || null,
+                height_cm: body.height_cm || null,
+                weight_kg: body.weight_kg || null,
+                blood_pressure_systolic: body.blood_pressure_systolic || null,
+                blood_pressure_diastolic: body.blood_pressure_diastolic || null,
+                heart_rate_bpm: body.heart_rate_bpm || null,
+                hearing: body.hearing || null,
+                respiratory: body.respiratory || null,
+                cardiovascular: body.cardiovascular || null,
+                nervous_system: body.nervous_system || null,
+                musculoskeletal: body.musculoskeletal || null,
+                skin: body.skin || null,
+                blood_test: body.blood_test || null,
+                other_observations: body.other_observations || null,
+                no_contraindication: body.no_contraindication || false,
+                conclusion_date: body.conclusion_date || null,
+                examiner_signature: body.examiner_signature || null,
+                psycho_favorable: body.psycho_favorable || false,
+                psycho_data: body.psycho_data || {}
             })
             .select()
             .single()
 
         if (createError) {
+            console.error('Create error:', createError)
             return NextResponse.json({ error: createError.message }, { status: 500 })
         }
+
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: session.user.discord_id,
+            actorName: getDisplayName(session.user),
+            action: 'create',
+            tableName: 'medical_exams',
+            recordId: exam.id,
+            newData: exam
+        })
 
         return NextResponse.json(exam, { status: 201 })
 

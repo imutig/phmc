@@ -72,6 +72,7 @@ export default function PlanningPage() {
     const [tempTitle, setTempTitle] = useState('')
     const [hoveredEvent, setHoveredEvent] = useState<{ event: Event; x: number; y: number } | null>(null)
     const [contextMenu, setContextMenu] = useState<{ event: Event; x: number; y: number } | null>(null)
+    const [deleteConfirm, setDeleteConfirm] = useState<{ eventId: string; title: string } | null>(null)
     const gridRef = useRef<HTMLDivElement>(null)
 
     // Form state
@@ -266,9 +267,16 @@ export default function PlanningPage() {
     }
 
     async function deleteEvent(eventId: string) {
-        if (!confirm("Supprimer cet événement ?")) return
+        // Trouver l'événement pour le titre
+        const event = events.find(e => e.id === eventId)
+        setDeleteConfirm({ eventId, title: event?.title || 'Événement' })
+        setContextMenu(null)
+    }
+
+    async function confirmDeleteEvent() {
+        if (!deleteConfirm) return
         try {
-            const res = await fetch(`/api/intranet/events?id=${eventId}`, { method: 'DELETE' })
+            const res = await fetch(`/api/intranet/events?id=${deleteConfirm.eventId}`, { method: 'DELETE' })
             if (res.ok) {
                 toast.success("Événement supprimé")
                 fetchEvents()
@@ -279,7 +287,7 @@ export default function PlanningPage() {
         } catch (e) {
             toast.error("Erreur de connexion")
         }
-        setContextMenu(null)
+        setDeleteConfirm(null)
     }
 
     function handleContextMenu(e: React.MouseEvent, event: Event) {
@@ -532,20 +540,8 @@ export default function PlanningPage() {
 
     async function handleDelete() {
         if (!editingEvent) return
-        if (!confirm("Supprimer cet événement ?")) return
-        try {
-            const res = await fetch(`/api/intranet/events?id=${editingEvent.id}`, { method: 'DELETE' })
-            if (res.ok) {
-                toast.success("Événement supprimé")
-                setShowModal(false)
-                fetchEvents()
-            } else {
-                const error = await res.json()
-                toast.error(error.error || "Erreur lors de la suppression")
-            }
-        } catch (e) {
-            toast.error("Erreur de connexion")
-        }
+        setDeleteConfirm({ eventId: editingEvent.id, title: editingEvent.title })
+        setShowModal(false)
     }
 
     return (
@@ -989,6 +985,49 @@ export default function PlanningPage() {
                                         {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                                     </button>
                                 </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {deleteConfirm && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+                        onClick={() => setDeleteConfirm(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-6 max-w-md w-full"
+                        >
+                            <h3 className="font-display text-xl font-bold text-white mb-2">
+                                Supprimer l'événement ?
+                            </h3>
+                            <p className="text-gray-400 mb-6">
+                                Êtes-vous sûr de vouloir supprimer <span className="text-white font-medium">"{deleteConfirm.title}"</span> ?
+                                Cette action est irréversible.
+                            </p>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={confirmDeleteEvent}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Supprimer
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>

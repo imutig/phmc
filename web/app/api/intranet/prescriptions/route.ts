@@ -104,6 +104,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase
         .from('prescriptions')
         .select('*')
+        .is('deleted_at', null)
         .eq('created_by_discord_id', session.user.discord_id)
         .order('created_at', { ascending: false })
         .limit(20)

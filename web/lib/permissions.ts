@@ -218,6 +218,13 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
         description: 'Voir la liste des employés et synchroniser leurs données Discord',
         category: 'admin',
         defaultGrades: ['direction']
+    },
+    {
+        key: 'audit.view',
+        label: 'Voir les logs',
+        description: 'Consulter le journal d\'audit de toutes les modifications',
+        category: 'admin',
+        defaultGrades: ['direction']
     }
 ]
 

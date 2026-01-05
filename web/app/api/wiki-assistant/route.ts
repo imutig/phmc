@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
         const { data: articles } = await supabase
             .from("wiki_articles")
             .select("title, content, category")
+            .is("deleted_at", null)
             .eq("is_published", true)
 
         if (!articles || articles.length === 0) {

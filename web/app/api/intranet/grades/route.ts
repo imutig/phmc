@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { requireEmployeeAccess, requireEditorAccess } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
+import { validateBody, GradeSchema } from "@/lib/validations"
 
 // Salaires par grade (backup si table grades non dispo)
 const GRADE_SALARIES: Record<string, { salary: number; max: number; displayName: string }> = {
@@ -49,11 +50,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, display_name, salary_per_15min, max_weekly_salary, sort_order } = body
 
-    if (!name || !salary_per_15min) {
-        return NextResponse.json({ error: "Nom et salaire requis" }, { status: 400 })
+    // Validation Zod
+    const validation = validateBody(GradeSchema, body)
+    if (!validation.success) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+
+    const { name, display_name, salary_per_15min, max_weekly_salary, sort_order } = validation.data
 
     const supabase = await createClient()
 

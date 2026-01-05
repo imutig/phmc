@@ -47,6 +47,7 @@ export async function GET(request: Request) {
     let query = supabase
         .from('wiki_articles')
         .select('*')
+        .is('deleted_at', null)
         .eq('is_published', true)
         .order('category', { ascending: true })
         .order('sort_order', { ascending: true })
@@ -124,6 +125,17 @@ export async function POST(request: Request) {
         modified_by_name: displayName
     })
 
+    // Audit log
+    const { logAudit } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: displayName,
+        action: 'create',
+        tableName: 'wiki_articles',
+        recordId: data.id,
+        newData: data
+    })
+
     return NextResponse.json(data, { status: 201 })
 }
 
@@ -193,10 +205,22 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Audit log
+    const { logAudit } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: displayName,
+        action: 'update',
+        tableName: 'wiki_articles',
+        recordId: id,
+        oldData: oldArticle || undefined,
+        newData: data
+    })
+
     return NextResponse.json(data)
 }
 
-// DELETE - Supprimer un article (direction uniquement)
+// DELETE - Supprimer un article (direction uniquement) - Soft Delete
 export async function DELETE(request: Request) {
     const authResult = await requireEditorAccess()
     if (!authResult.authorized) {
@@ -212,14 +236,38 @@ export async function DELETE(request: Request) {
 
     const supabase = await createClient()
 
+    // Récupérer l'article avant suppression pour l'audit
+    const { data: article } = await supabase
+        .from('wiki_articles')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .single()
+
+    if (!article) {
+        return NextResponse.json({ error: "Article non trouvé" }, { status: 404 })
+    }
+
+    // Soft delete
     const { error } = await supabase
         .from('wiki_articles')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'delete',
+        tableName: 'wiki_articles',
+        recordId: id,
+        oldData: article
+    })
 
     return NextResponse.json({ success: true })
 }

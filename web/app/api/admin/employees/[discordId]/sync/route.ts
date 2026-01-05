@@ -118,6 +118,18 @@ export async function POST(
             return NextResponse.json({ error: 'Erreur mise à jour base de données' }, { status: 500 })
         }
 
+        // Audit log
+        const { logAudit } = await import('@/lib/audit')
+        const { auth } = await import('@/lib/auth')
+        const session = await auth()
+        await logAudit({
+            actorDiscordId: session?.user?.discord_id || 'admin',
+            actorName: session?.user?.name || undefined,
+            action: 'update',
+            tableName: 'users',
+            newData: { target_discord_id: discordId, displayName, grade, source: 'sync_from_discord' }
+        })
+
         return NextResponse.json({
             success: true,
             data: {

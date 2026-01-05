@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Pill, Plus, Edit2, Trash2, Search, Loader2, ChevronDown, Clock, AlertTriangle, Ban } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { useToast } from "@/contexts/ToastContext"
 import { useConfirmAnimation } from "@/hooks/useConfirmAnimation"
@@ -44,6 +45,7 @@ export default function MedicamentsPage() {
     // Modals
     const [isAddOpen, setIsAddOpen] = useState(false)
     const [editingMed, setEditingMed] = useState<Medication | null>(null)
+    const [deletingMedId, setDeletingMedId] = useState<string | null>(null)
 
     // Form
     const [formName, setFormName] = useState("")
@@ -145,10 +147,12 @@ export default function MedicamentsPage() {
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Supprimer ce médicament ?')) return
-        await fetch(`/api/intranet/medications/${id}`, { method: 'DELETE' })
+    const handleDelete = async () => {
+        if (!deletingMedId) return
+        await fetch(`/api/intranet/medications/${deletingMedId}`, { method: 'DELETE' })
+        toast.success("Médicament supprimé !")
         fetchMedications()
+        setDeletingMedId(null)
     }
 
     const resetForm = () => {
@@ -332,7 +336,7 @@ export default function MedicamentsPage() {
                                                                     <Edit2 className="w-4 h-4" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={(e) => { e.stopPropagation(); handleDelete(med.id); }}
+                                                                    onClick={(e) => { e.stopPropagation(); setDeletingMedId(med.id); }}
                                                                     className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded"
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
@@ -488,6 +492,17 @@ export default function MedicamentsPage() {
                     />
                 </div>
             </Modal>
+
+            {/* Modal de confirmation suppression */}
+            <ConfirmModal
+                isOpen={!!deletingMedId}
+                onClose={() => setDeletingMedId(null)}
+                onConfirm={handleDelete}
+                title="Supprimer ce médicament ?"
+                message="Cette action est irréversible. Le médicament sera définitivement supprimé de la base de données."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </div>
     )
 }

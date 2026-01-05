@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         const { data: services, error } = await supabase
             .from('services')
             .select('id, user_discord_id, user_name, user_avatar_url, grade_name, start_time')
+            .is('deleted_at', null)
             .is('end_time', null)
             .order('start_time', { ascending: true })
 
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
+        .is('deleted_at', null)
         .eq('week_number', week)
         .eq('year', year)
         .not('end_time', 'is', null)

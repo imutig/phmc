@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
-import { DollarSign, ChevronLeft, ChevronRight, Download, RefreshCw, Users, Gift, Check, Loader2 } from "lucide-react"
+import { DollarSign, ChevronLeft, ChevronRight, RefreshCw, Users, Gift, Check, Loader2 } from "lucide-react"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { Skeleton } from "@/components/ui/Skeleton"
 
@@ -150,37 +150,6 @@ export default function SalairesPage() {
 
     const getTotalPrimes = () => Object.values(primes).reduce((sum, p) => sum + p, 0)
 
-    const exportCSV = () => {
-        if (!data) return
-        const headers = ['Employé', 'Grade', 'Heures', 'Versements', 'Salaire', 'Prime', 'Reste à verser', 'Max']
-        const rows = data.employees.map(e => {
-            const prime = primes[e.discordId] || 0
-            const resteAvecPrime = e.remainingSalary + prime
-            return [
-                e.name,
-                e.gradeDisplay,
-                e.hoursFormatted,
-                e.totalSlots.toString(),
-                `$${e.totalSalary.toLocaleString()}`,
-                `$${prime.toLocaleString()}`,
-                `$${resteAvecPrime.toLocaleString()}`,
-                `$${e.maxWeekly.toLocaleString()}`
-            ]
-        })
-        const tp = getTotalPrimes()
-        rows.push(['TOTAL', '-', data.totals.hoursFormatted, data.totals.totalSlots.toString(),
-            `$${data.totals.totalSalary.toLocaleString()}`, `$${tp.toLocaleString()}`,
-            `$${(data.totals.totalRemaining + tp).toLocaleString()}`, '-'])
-
-        const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
-        const blob = new Blob([csv], { type: 'text/csv' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `salaires_S${week}_${year}.csv`
-        a.click()
-    }
-
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -205,10 +174,6 @@ export default function SalairesPage() {
                     </button>
                     <button onClick={() => fetchData(week!, year!)} className="p-2 hover:bg-white/10 rounded transition-colors ml-2" disabled={loading}>
                         <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors ml-2" disabled={loading || !data}>
-                        <Download className="w-4 h-4" />
-                        Export CSV
                     </button>
                 </div>
             </div>

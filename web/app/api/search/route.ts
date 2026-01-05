@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         const { data: wikiResults } = await supabase
             .from('wiki_articles')
             .select('id, title, category, slug')
+            .is('deleted_at', null)
             .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
             .eq('is_published', true)
             .limit(5)
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
         const { data: medResults } = await supabase
             .from('medications')
             .select('id, name, dosage')
+            .is('deleted_at', null)
             .or(`name.ilike.%${query}%,effects.ilike.%${query}%`)
             .limit(5)
 
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
         const { data: careResults } = await supabase
             .from('care_types')
             .select('id, name, price, care_categories(name)')
+            .is('deleted_at', null)
             .ilike('name', `%${query}%`)
             .limit(5)
 

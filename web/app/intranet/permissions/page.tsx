@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Shield, Loader2, Check, X, RefreshCw, ChevronDown, ChevronRight, Info, AlertCircle } from "lucide-react"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { useToast } from "@/contexts/ToastContext"
 import {
     ALL_PERMISSIONS,
@@ -29,6 +30,7 @@ export default function PermissionsPage() {
     const [error, setError] = useState("")
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(PERMISSION_CATEGORIES.map(c => c.id)))
     const [selectedGrade, setSelectedGrade] = useState<GradeType>('chirurgien')
+    const [resettingGrade, setResettingGrade] = useState<GradeType | null>(null)
     const toast = useToast()
 
     const permissionsByCategory = useMemo(() => getPermissionsByCategory(), [])
@@ -97,22 +99,20 @@ export default function PermissionsPage() {
         }
     }
 
-    const handleResetGrade = async (grade: GradeType) => {
-        if (grade === 'direction') return
-        if (!confirm(`Réinitialiser toutes les permissions de ${GRADE_INFO[grade].name} aux valeurs par défaut ?`)) return
+    const handleResetGrade = async () => {
+        if (!resettingGrade || resettingGrade === 'direction') return
 
-        setSaving(`reset-${grade}`)
+        setSaving(`reset-${resettingGrade}`)
         try {
             const res = await fetch('/api/intranet/permissions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ grade, reset: true })
+                body: JSON.stringify({ grade: resettingGrade, reset: true })
             })
 
             if (res.ok) {
-                // Recharger les permissions
                 await fetchPermissions()
-                toast.success(`Permissions de ${GRADE_INFO[grade].name} réinitialisées`)
+                toast.success(`Permissions de ${GRADE_INFO[resettingGrade].name} réinitialisées`)
             } else {
                 const data = await res.json()
                 toast.error(data.error || "Erreur")
@@ -121,6 +121,7 @@ export default function PermissionsPage() {
             toast.error("Erreur réseau")
         } finally {
             setSaving(null)
+            setResettingGrade(null)
         }
     }
 
@@ -194,10 +195,10 @@ export default function PermissionsPage() {
                         onClick={() => setSelectedGrade(grade)}
                         disabled={grade === 'direction'}
                         className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${selectedGrade === grade
-                                ? `${GRADE_INFO[grade].bgColor} ${GRADE_INFO[grade].color} ring-2 ring-current`
-                                : grade === 'direction'
-                                    ? 'bg-red-500/10 text-red-400/50 cursor-not-allowed'
-                                    : 'bg-[#1a1a1a] text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
+                            ? `${GRADE_INFO[grade].bgColor} ${GRADE_INFO[grade].color} ring-2 ring-current`
+                            : grade === 'direction'
+                                ? 'bg-red-500/10 text-red-400/50 cursor-not-allowed'
+                                : 'bg-[#1a1a1a] text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
                             }`}
                     >
                         {GRADE_INFO[grade].name}
@@ -212,7 +213,7 @@ export default function PermissionsPage() {
             {selectedGrade !== 'direction' && (
                 <div className="flex justify-end mb-4">
                     <button
-                        onClick={() => handleResetGrade(selectedGrade)}
+                        onClick={() => setResettingGrade(selectedGrade)}
                         disabled={saving?.startsWith('reset')}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white bg-[#1a1a1a] hover:bg-[#2a2a2a] rounded-lg transition-colors"
                     >
@@ -301,8 +302,8 @@ export default function PermissionsPage() {
                                                             onClick={() => handleTogglePermission(selectedGrade, perm.key, isGranted)}
                                                             disabled={isSaving || isDirection}
                                                             className={`relative w-14 h-8 rounded-full transition-colors ${isGranted
-                                                                    ? 'bg-green-500'
-                                                                    : 'bg-gray-700'
+                                                                ? 'bg-green-500'
+                                                                : 'bg-gray-700'
                                                                 } ${isDirection ? 'cursor-not-allowed' : ''}`}
                                                         >
                                                             {isSaving ? (
@@ -347,6 +348,17 @@ export default function PermissionsPage() {
                     </ul>
                 </div>
             </div>
+
+            {/* Modal de confirmation réinitialisation */}
+            <ConfirmModal
+                isOpen={!!resettingGrade}
+                onClose={() => setResettingGrade(null)}
+                onConfirm={handleResetGrade}
+                title="Réinitialiser les permissions ?"
+                message={`Toutes les permissions de ${resettingGrade ? GRADE_INFO[resettingGrade].name : ''} seront remises aux valeurs par défaut.`}
+                confirmText="Réinitialiser"
+                variant="warning"
+            />
         </div>
     )
 }

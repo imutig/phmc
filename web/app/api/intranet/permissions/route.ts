@@ -159,6 +159,16 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: session.user.discord_id,
+        actorName: getDisplayName(session.user),
+        action: 'update',
+        tableName: 'grade_permissions',
+        newData: { grade, permission_key, granted }
+    })
+
     // Invalider le cache
     invalidatePermissionsCache()
 
@@ -198,6 +208,16 @@ export async function POST(request: Request) {
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'update',
+        tableName: 'grade_permissions',
+        newData: { grade, action: 'reset_to_default' }
+    })
 
     // Invalider le cache
     invalidatePermissionsCache()

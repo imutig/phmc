@@ -3,6 +3,7 @@ import { requireEmployeeAccess, getPrimaryGrade, checkDiscordRoles } from "@/lib
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { getISOWeekAndYear } from "@/lib/date-utils"
+import { validateBody, ServiceCreateSchema } from "@/lib/validations"
 
 // Salaires par grade (fallback)
 const GRADE_SALARIES: Record<string, number> = {
@@ -48,6 +49,7 @@ export async function GET(request: Request) {
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
+        .is('deleted_at', null)
         .eq('user_discord_id', session.user.discord_id)
         .eq('week_number', week)
         .eq('year', year)
@@ -96,11 +98,14 @@ export async function POST(request: Request) {
     const displayName = roleResult.displayName || session.user.name || 'Inconnu'
 
     const body = await request.json()
-    const { start_time, end_time } = body
 
-    if (!start_time || !end_time) {
-        return NextResponse.json({ error: "Heures de début et fin requises" }, { status: 400 })
+    // Validation Zod
+    const validation = validateBody(ServiceCreateSchema, body)
+    if (!validation.success) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+
+    const { start_time, end_time } = validation.data
 
     const startDate = new Date(start_time)
     const endDate = new Date(end_time)
@@ -159,10 +164,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Audit log
+    const { logAudit } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: session.user.discord_id,
+        actorName: displayName,
+        actorGrade: grade,
+        action: 'create',
+        tableName: 'services',
+        recordId: data.id,
+        newData: data
+    })
+
     return NextResponse.json(data, { status: 201 })
 }
 
-// DELETE - Supprimer un service
+// DELETE - Supprimer un service (soft delete)
 export async function DELETE(request: Request) {
     const authResult = await requireEmployeeAccess()
     if (!authResult.authorized) {
@@ -188,8 +205,9 @@ export async function DELETE(request: Request) {
 
     const { data: service, error: fetchError } = await supabase
         .from('services')
-        .select('user_discord_id')
+        .select('*')
         .eq('id', serviceId)
+        .is('deleted_at', null)
         .single()
 
     if (fetchError || !service) {
@@ -201,14 +219,27 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
     }
 
+    // Soft delete au lieu de hard delete
     const { error } = await supabase
         .from('services')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', serviceId)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: session.user.discord_id,
+        actorName: getDisplayName(session.user),
+        action: 'delete',
+        tableName: 'services',
+        recordId: serviceId,
+        oldData: service
+    })
+
     return NextResponse.json({ success: true })
 }
+

@@ -7,6 +7,7 @@ import {
     AlertCircle, LayoutGrid, List, TrendingUp, Download, BarChart3
 } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useToast } from "@/contexts/ToastContext"
@@ -66,6 +67,7 @@ export default function ServicesPage() {
     const [endTime, setEndTime] = useState("12:00")
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState("")
+    const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null)
     const { fireSuccess } = useConfirmAnimation()
 
     useEffect(() => {
@@ -164,16 +166,18 @@ export default function ServicesPage() {
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Supprimer ce service ?")) return
+    const handleDelete = async () => {
+        if (!deletingServiceId) return
         try {
-            const res = await fetch(`/api/intranet/services?id=${id}`, { method: 'DELETE' })
+            const res = await fetch(`/api/intranet/services?id=${deletingServiceId}`, { method: 'DELETE' })
             if (res.ok) {
                 toast.success("Service supprimé")
                 fetchServices()
             }
         } catch (error) {
             toast.error("Erreur suppression")
+        } finally {
+            setDeletingServiceId(null)
         }
     }
 
@@ -437,7 +441,7 @@ export default function ServicesPage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <button
-                                                    onClick={() => handleDelete(service.id)}
+                                                    onClick={() => setDeletingServiceId(service.id)}
                                                     className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -500,7 +504,7 @@ export default function ServicesPage() {
                                                     </span>
                                                     {!isLive && (
                                                         <button
-                                                            onClick={() => handleDelete(service.id)}
+                                                            onClick={() => setDeletingServiceId(service.id)}
                                                             className="p-0.5 text-gray-500 hover:text-red-400"
                                                         >
                                                             <Trash2 className="w-3 h-3" />
@@ -587,6 +591,17 @@ export default function ServicesPage() {
                     </p>
                 </div>
             </Modal>
+
+            {/* Modal de confirmation suppression */}
+            <ConfirmModal
+                isOpen={!!deletingServiceId}
+                onClose={() => setDeletingServiceId(null)}
+                onConfirm={handleDelete}
+                title="Supprimer ce service ?"
+                message="Cette action est irréversible. Le service sera définitivement supprimé."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </div>
     )
 }

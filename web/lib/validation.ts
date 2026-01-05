@@ -47,8 +47,9 @@ export const PatientCreateSchema = z.object({
     lastName: z.string().min(1, 'Nom requis'),
     birthDate: z.string().min(1, 'Date de naissance requise'),
     fingerprint: z.string()
-        .regex(/^\d{1,6}$/, 'L\'empreinte doit contenir 1 à 6 chiffres')
-        .min(1, 'Empreinte requise'),
+        .regex(/^\d{0,6}$/, 'L\'empreinte doit contenir 0 à 6 chiffres')
+        .optional()
+        .or(z.literal('')),
     phone: z.string().optional(),
     discordId: z.string().optional(),
 });

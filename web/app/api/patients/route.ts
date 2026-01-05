@@ -24,7 +24,23 @@ export async function GET(request: NextRequest) {
             .limit(limit)
 
         if (search) {
-            query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,fingerprint.ilike.%${search}%`)
+            // Recherche plus permissive : on cherche chaque mot dans first_name OU last_name
+            // Permet de chercher "John Smith" et trouver un patient avec first_name="John" et last_name="Smith"
+            const searchTerms = search.trim().split(/\s+/).filter(t => t.length > 0)
+
+            if (searchTerms.length === 1) {
+                // Recherche simple : un seul terme
+                query = query.or(`first_name.ilike.%${searchTerms[0]}%,last_name.ilike.%${searchTerms[0]}%,phone.ilike.%${searchTerms[0]}%,fingerprint.ilike.%${searchTerms[0]}%`)
+            } else {
+                // Recherche multi-termes : chaque terme doit matcher dans first_name OU last_name
+                // On utilise une combinaison de filtres
+                const term1 = searchTerms[0]
+                const term2 = searchTerms.slice(1).join(' ')
+                query = query.or(
+                    `and(first_name.ilike.%${term1}%,last_name.ilike.%${term2}%),` +
+                    `and(first_name.ilike.%${term2}%,last_name.ilike.%${term1}%)` // Ordre inversé aussi
+                )
+            }
         }
 
         const { data: patients, error } = await query
@@ -102,6 +118,17 @@ export async function POST(request: NextRequest) {
                 { status: 500 }
             )
         }
+
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: authResult.session!.user.discord_id,
+            actorName: getDisplayName(authResult.session!.user),
+            action: 'create',
+            tableName: 'patients',
+            recordId: patient.id,
+            newData: patient
+        })
 
         return NextResponse.json({ patient })
 

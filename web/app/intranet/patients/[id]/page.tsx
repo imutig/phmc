@@ -517,7 +517,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                     >
                         <div className="flex items-center gap-2">
                             <Stethoscope className="w-4 h-4" />
-                            Visites médicales
+                            Visites
                         </div>
                         {activeTab === 'exams' && (
                             <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500" />
@@ -1004,7 +1004,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                                     <Stethoscope className="w-5 h-5 text-emerald-400" />
-                                    Visites médicales
+                                    Visites
                                 </h3>
                                 <Link
                                     href={`/intranet/patients/${resolvedParams.id}/medical-exam/new`}
@@ -1022,7 +1022,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             ) : medicalExams.length === 0 ? (
                                 <div className="text-center py-12 text-gray-400">
                                     <Stethoscope className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                                    <p>Aucune visite médicale enregistrée</p>
+                                    <p>Aucune visite enregistrée</p>
                                     <p className="text-sm mt-1">Cliquez sur &quot;Nouvelle visite&quot; pour commencer</p>
                                 </div>
                             ) : (

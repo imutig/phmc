@@ -111,6 +111,16 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: session.user.discord_id,
+            actorName: getDisplayName(session.user),
+            action: 'update',
+            tableName: 'users',
+            newData: { discord_id: session.user.discord_id, ign: trimmedIgn, source: 'self_update' }
+        })
+
         return NextResponse.json({ success: true, ign: trimmedIgn })
     } catch (error) {
         return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

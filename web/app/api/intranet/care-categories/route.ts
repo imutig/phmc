@@ -17,13 +17,20 @@ export async function GET() {
             *,
             care_types (*)
         `)
+        .is('deleted_at', null)
         .order('sort_order', { ascending: true })
+
+    // Filtrer les care_types supprimés dans chaque catégorie
+    const filteredCategories = categories?.map(cat => ({
+        ...cat,
+        care_types: (cat.care_types || []).filter((t: { deleted_at: string | null }) => t.deleted_at === null)
+    }))
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(categories)
+    return NextResponse.json(filteredCategories)
 }
 
 // POST - Créer une nouvelle catégorie
@@ -51,6 +58,17 @@ export async function POST(request: Request) {
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'create',
+        tableName: 'care_categories',
+        recordId: data.id,
+        newData: data
+    })
 
     return NextResponse.json(data, { status: 201 })
 }

@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const { data: services, error } = await supabase
         .from('services')
         .select('*')
+        .is('deleted_at', null)
         .eq('week_number', week)
         .eq('year', year)
         .order('user_name', { ascending: true })

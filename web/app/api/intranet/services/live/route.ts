@@ -46,6 +46,7 @@ export async function GET() {
     const { data: service, error } = await supabase
         .from('services')
         .select('*')
+        .is('deleted_at', null)
         .eq('user_discord_id', discordId)
         .is('end_time', null)
         .order('start_time', { ascending: false })
@@ -116,6 +117,17 @@ export async function POST(request: Request) {
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log - Prise de service
+    const { logAudit } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: discordId,
+        actorName: userName,
+        action: 'create',
+        tableName: 'services',
+        recordId: data.id,
+        newData: data
+    })
 
     return NextResponse.json({ service: data }, { status: 201 })
 }
@@ -193,6 +205,18 @@ export async function PATCH(request: Request) {
     if (updateError) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
+
+    // Audit log - Fin de service
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: session.user.discord_id,
+        actorName: getDisplayName(session.user),
+        action: 'update',
+        tableName: 'services',
+        recordId: service_id,
+        oldData: service,
+        newData: updated
+    })
 
     return NextResponse.json({
         service: updated,

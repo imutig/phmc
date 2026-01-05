@@ -22,7 +22,8 @@ import {
     BarChart3,
     UserSearch,
     HelpCircle,
-    Settings
+    Settings,
+    History
 } from "lucide-react"
 import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
 import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
@@ -143,6 +144,13 @@ const menuItems = [
         label: "Effectif",
         icon: Users,
         roles: ['direction']
+    },
+    {
+        href: "/intranet/audit",
+        label: "Logs",
+        icon: History,
+        roles: ['direction'],
+        permission: 'audit.view'
     },
     {
         href: "/intranet/parametres",

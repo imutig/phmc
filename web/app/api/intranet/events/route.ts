@@ -43,6 +43,7 @@ export async function GET(request: Request) {
                 user_name
             )
         `)
+        .is('deleted_at', null)
         .eq('is_published', true)
         .order('event_date', { ascending: true })
         .order('start_time', { ascending: true })
@@ -148,6 +149,17 @@ export async function POST(request: Request) {
         await supabase.from('event_participants').insert(participantsData)
     }
 
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'create',
+        tableName: 'events',
+        recordId: event.id,
+        newData: event
+    })
+
     return NextResponse.json(event, { status: 201 })
 }
 
@@ -170,8 +182,9 @@ export async function PUT(request: Request) {
     // Vérifier que l'utilisateur est le créateur ou direction
     const { data: existingEvent } = await supabase
         .from('events')
-        .select('created_by')
+        .select('*')
         .eq('id', id)
+        .is('deleted_at', null)
         .single()
 
     const isCreator = existingEvent?.created_by === authResult.session?.user?.discord_id
@@ -250,6 +263,18 @@ export async function PUT(request: Request) {
         }
     }
 
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'update',
+        tableName: 'events',
+        recordId: id,
+        oldData: existingEvent,
+        newData: data
+    })
+
     return NextResponse.json(data)
 }
 
@@ -272,25 +297,42 @@ export async function DELETE(request: Request) {
     // Vérifier que l'utilisateur est le créateur ou direction
     const { data: existingEvent } = await supabase
         .from('events')
-        .select('created_by')
+        .select('*')
         .eq('id', id)
+        .is('deleted_at', null)
         .single()
 
-    const isCreator = existingEvent?.created_by === authResult.session?.user?.discord_id
+    if (!existingEvent) {
+        return NextResponse.json({ error: "Événement non trouvé" }, { status: 404 })
+    }
+
+    const isCreator = existingEvent.created_by === authResult.session?.user?.discord_id
     const isDirection = authResult.session?.user?.roles?.includes('direction')
 
     if (!isCreator && !isDirection) {
         return NextResponse.json({ error: "Vous ne pouvez supprimer que vos propres événements" }, { status: 403 })
     }
 
+    // Soft delete au lieu de hard delete
     const { error } = await supabase
         .from('events')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'delete',
+        tableName: 'events',
+        recordId: id,
+        oldData: existingEvent
+    })
 
     return NextResponse.json({ success: true })
 }

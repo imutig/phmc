@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { requireEmployeeAccess, requireEditorAccess } from "@/lib/auth-utils"
 import { NextResponse } from "next/server"
+import { validateBody, MedicationSchema } from "@/lib/validations"
 
 // GET - Récupérer tous les médicaments avec leurs catégories
 export async function GET() {
@@ -17,6 +18,7 @@ export async function GET() {
             *,
             category:medication_categories(id, name, color, icon)
         `)
+        .is('deleted_at', null)
         .order('name', { ascending: true })
 
     if (error) {
@@ -40,11 +42,15 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, dosage, duration, effects, side_effects, category_id, contraindications } = body
 
-    if (!name) {
-        return NextResponse.json({ error: "Le nom est requis" }, { status: 400 })
+    // Validation Zod
+    const validation = validateBody(MedicationSchema, body)
+    if (!validation.success) {
+        return NextResponse.json({ error: validation.error }, { status: 400 })
     }
+
+    const { name, dosage, duration, effects, side_effects } = validation.data
+    const { category_id, contraindications } = body // Champs optionnels non dans le schéma
 
     const supabase = await createClient()
 
@@ -60,6 +66,17 @@ export async function POST(request: Request) {
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'create',
+        tableName: 'medications',
+        recordId: data.id,
+        newData: data
+    })
 
     return NextResponse.json(data, { status: 201 })
 }

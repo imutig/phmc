@@ -566,6 +566,11 @@ function TodayEventsWidget() {
                                             {event.location}
                                         </p>
                                     )}
+                                    {event.created_by_name && (
+                                        <p className="text-xs text-gray-600">
+                                            Par {event.created_by_name}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         )
@@ -660,8 +665,9 @@ export default function IntranetPage() {
                 </div>
             </motion.div>
 
-            {/* Prochain événement */}
+            {/* Prochain événement - Désactivé temporairement
             <NextEventWidget />
+            */}
 
             {/* Stats utilisateur */}
             {profile && <UserStatsWidget userDiscordId={profile.discordId} />}

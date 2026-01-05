@@ -48,6 +48,18 @@ export async function PATCH(
             return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
         }
 
+        // Audit log
+        const { logAudit } = await import('@/lib/audit')
+        const { auth } = await import('@/lib/auth')
+        const session = await auth()
+        await logAudit({
+            actorDiscordId: session?.user?.discord_id || 'admin',
+            actorName: session?.user?.name || undefined,
+            action: 'update',
+            tableName: 'users',
+            newData: { target_discord_id: discordId, ign: ign || null, source: 'admin_update_effectif' }
+        })
+
         return NextResponse.json({
             success: true,
             discordId,

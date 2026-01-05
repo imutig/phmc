@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Book, Plus, Edit2, Trash2, Search, Loader2, ChevronRight, Save, X, Eye, GripVertical, History } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
+import { ConfirmModal } from "@/components/ui/ConfirmModal"
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { WikiEditor } from "@/components/intranet/wiki/WikiEditor"
 import { WikiAssistant } from "@/components/intranet/wiki/WikiAssistant"
@@ -77,6 +78,7 @@ function WikiContent() {
     const [historyData, setHistoryData] = useState<WikiHistory[]>([])
     const [historyLoading, setHistoryLoading] = useState(false)
     const [viewingHistory, setViewingHistory] = useState<WikiHistory | null>(null)
+    const [deletingArticle, setDeletingArticle] = useState<WikiArticle | null>(null)
 
     useEffect(() => {
         fetchData()
@@ -259,17 +261,19 @@ function WikiContent() {
         }
     }
 
-    const handleDelete = async (article: WikiArticle) => {
-        if (!confirm(`Supprimer "${article.title}" ?`)) return
+    const handleDelete = async () => {
+        if (!deletingArticle) return
         try {
-            await fetch(`/api/intranet/wiki?id=${article.id}`, { method: 'DELETE' })
+            await fetch(`/api/intranet/wiki?id=${deletingArticle.id}`, { method: 'DELETE' })
             toast.success("Article supprimé")
-            if (selectedArticle?.id === article.id) {
+            if (selectedArticle?.id === deletingArticle.id) {
                 setSelectedArticle(null)
             }
             fetchData()
         } catch (e) {
             toast.error("Erreur suppression")
+        } finally {
+            setDeletingArticle(null)
         }
     }
 
@@ -484,7 +488,7 @@ function WikiContent() {
                                         <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(selectedArticle)}
+                                        onClick={() => setDeletingArticle(selectedArticle)}
                                         className="p-2 text-gray-400 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -715,6 +719,17 @@ function WikiContent() {
                     </div>
                 )}
             </Modal>
+
+            {/* Modal de confirmation suppression */}
+            <ConfirmModal
+                isOpen={!!deletingArticle}
+                onClose={() => setDeletingArticle(null)}
+                onConfirm={handleDelete}
+                title={`Supprimer "${deletingArticle?.title}" ?`}
+                message="Cette action est irréversible. L'article sera définitivement supprimé du wiki."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </div>
     )
 }

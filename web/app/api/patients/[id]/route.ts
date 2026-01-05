@@ -82,6 +82,13 @@ export async function PATCH(
             }
         }
 
+        // Récupérer l'ancienne valeur pour l'audit
+        const { data: oldData } = await supabase
+            .from('patients')
+            .select('*')
+            .eq('id', id)
+            .single()
+
         const { data: patient, error } = await supabase
             .from('patients')
             .update(updateData)
@@ -96,6 +103,18 @@ export async function PATCH(
                 { status: 500 }
             )
         }
+
+        // Audit log
+        const { logAudit, getDisplayName } = await import('@/lib/audit')
+        await logAudit({
+            actorDiscordId: authResult.session!.user.discord_id,
+            actorName: getDisplayName(authResult.session!.user),
+            action: 'update',
+            tableName: 'patients',
+            recordId: id,
+            oldData: oldData || undefined,
+            newData: patient
+        })
 
         return NextResponse.json({ patient })
 

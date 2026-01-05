@@ -18,6 +18,14 @@ export async function PUT(
 
     const supabase = await createClient()
 
+    // Récupérer l'ancienne valeur pour l'audit
+    const { data: oldData } = await supabase
+        .from('care_categories')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .single()
+
     const { data, error } = await supabase
         .from('care_categories')
         .update({ name, description, sort_order, updated_at: new Date().toISOString() })
@@ -29,10 +37,22 @@ export async function PUT(
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'update',
+        tableName: 'care_categories',
+        recordId: id,
+        oldData: oldData || undefined,
+        newData: data
+    })
+
     return NextResponse.json(data)
 }
 
-// DELETE - Supprimer une catégorie
+// DELETE - Supprimer une catégorie - Soft Delete
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -45,14 +65,38 @@ export async function DELETE(
     const { id } = await params
     const supabase = await createClient()
 
+    // Récupérer les données pour l'audit
+    const { data: category } = await supabase
+        .from('care_categories')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .single()
+
+    if (!category) {
+        return NextResponse.json({ error: "Catégorie non trouvée" }, { status: 404 })
+    }
+
+    // Soft delete
     const { error } = await supabase
         .from('care_categories')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id)
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Audit log
+    const { logAudit, getDisplayName } = await import('@/lib/audit')
+    await logAudit({
+        actorDiscordId: authResult.session?.user?.discord_id || 'unknown',
+        actorName: authResult.session?.user ? getDisplayName(authResult.session.user) : undefined,
+        action: 'delete',
+        tableName: 'care_categories',
+        recordId: id,
+        oldData: category
+    })
 
     return NextResponse.json({ success: true })
 }

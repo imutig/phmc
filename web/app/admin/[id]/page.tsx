@@ -12,6 +12,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { STATUS_LABELS, STATUS_COLORS, type ApplicationStatus } from "@/lib/types/database";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 interface ApplicationDetail {
     id: string;
@@ -126,6 +127,7 @@ export default function AdminDetailPage() {
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editMessageContent, setEditMessageContent] = useState('');
     const [savingMessage, setSavingMessage] = useState(false);
+    const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
 
     const fetchApplication = useCallback(async () => {
         try {
@@ -344,6 +346,13 @@ export default function AdminDetailPage() {
         }
     };
 
+    const handleDeleteMessage = async () => {
+        if (!deletingMessageId) return;
+        await fetch(`/api/admin/applications/${id}/message/${deletingMessageId}`, { method: 'DELETE' });
+        setDeletingMessageId(null);
+        fetchApplication();
+    };
+
     if (loading) {
         return (
             <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -555,11 +564,7 @@ export default function AdminDetailPage() {
                                                                         <Edit2 className="w-3 h-3" />
                                                                     </button>
                                                                     <button
-                                                                        onClick={async () => {
-                                                                            if (!confirm('Supprimer ce message ?')) return;
-                                                                            await fetch(`/api/admin/applications/${id}/message/${msg.id}`, { method: 'DELETE' });
-                                                                            fetchApplication();
-                                                                        }}
+                                                                        onClick={() => setDeletingMessageId(msg.id)}
                                                                         className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                                                                         title="Supprimer"
                                                                     >
@@ -1048,6 +1053,17 @@ export default function AdminDetailPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Modal de confirmation suppression message */}
+            <ConfirmModal
+                isOpen={!!deletingMessageId}
+                onClose={() => setDeletingMessageId(null)}
+                onConfirm={handleDeleteMessage}
+                title="Supprimer ce message ?"
+                message="Cette action est irréversible. Le message sera définitivement supprimé."
+                confirmText="Supprimer"
+                variant="danger"
+            />
         </>
     );
 }
