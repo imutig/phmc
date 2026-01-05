@@ -10,8 +10,7 @@ import {
 import Link from "next/link"
 import Image from "next/image"
 import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
-import { ActivityFeed } from "@/components/intranet/ActivityFeed"
-import { DashboardAnalytics } from "@/components/intranet/DashboardAnalytics"
+
 import { MiniLoader } from "@/components/ui/BouncingLoader"
 import { createClient } from "@/lib/supabase/client"
 import { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
@@ -695,11 +694,7 @@ export default function IntranetPage() {
                 <ColleaguesWidget />
             </div>
 
-            {/* Activité récente */}
-            <ActivityFeed maxItems={6} />
 
-            {/* Analytics Dashboard */}
-            <DashboardAnalytics />
 
 
         </div>
