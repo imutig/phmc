@@ -247,42 +247,9 @@ export default function PatientsPage() {
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Empreinte (ID In-Game) *</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono">#</span>
-                                        <input
-                                            type="text"
-                                            required
-                                            placeholder="123456"
-                                            value={newPatientData.fingerprint}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                                setNewPatientData({ ...newPatientData, fingerprint: val });
-                                            }}
-                                            className="w-full bg-black/50 border border-white/10 rounded pl-8 pr-3 py-2 text-white focus:outline-none focus:border-emerald-500/50 font-mono tracking-widest"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Date de naissance *</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={newPatientData.birthDate}
-                                        onChange={(e) => setNewPatientData({ ...newPatientData, birthDate: e.target.value })}
-                                        className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Téléphone</label>
-                                    <input
-                                        type="tel"
-                                        value={newPatientData.phone}
-                                        onChange={(e) => setNewPatientData({ ...newPatientData, phone: e.target.value })}
-                                        className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
-                                    />
-                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Les autres informations (date de naissance, téléphone, etc.) pourront être ajoutées dans la fiche patient.
+                                </p>
                                 <div className="flex gap-3 mt-6">
                                     <button
                                         type="button"

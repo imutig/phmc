@@ -105,11 +105,6 @@ export async function POST(request: Request) {
     const startDate = new Date(start_time)
     const endDate = new Date(end_time)
 
-    // Validation : heures doivent être sur des quarts d'heure
-    if (startDate.getMinutes() % 15 !== 0 || endDate.getMinutes() % 15 !== 0) {
-        return NextResponse.json({ error: "Les heures doivent être sur des tranches de 15 minutes (:00, :15, :30, :45)" }, { status: 400 })
-    }
-
     // Validation : fin après début
     if (endDate <= startDate) {
         return NextResponse.json({ error: "L'heure de fin doit être après l'heure de début" }, { status: 400 })

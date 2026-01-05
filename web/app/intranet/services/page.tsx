@@ -269,8 +269,8 @@ export default function ServicesPage() {
                             onClick={fetchTrend}
                             disabled={loadingTrend}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${showTrend
-                                    ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
-                                    : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white'
+                                ? 'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                                : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white'
                                 }`}
                         >
                             {loadingTrend ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
@@ -562,29 +562,23 @@ export default function ServicesPage() {
                             <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">
                                 Début
                             </label>
-                            <select
+                            <input
+                                type="time"
                                 value={startTime}
                                 onChange={e => setStartTime(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
-                            >
-                                {TIME_SLOTS.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">
                                 Fin
                             </label>
-                            <select
+                            <input
+                                type="time"
                                 value={endTime}
                                 onChange={e => setEndTime(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
-                            >
-                                {TIME_SLOTS.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
                         </div>
                     </div>
 

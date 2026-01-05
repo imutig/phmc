@@ -80,6 +80,12 @@ export default function GestionServicesPage() {
     const [liveServices, setLiveServices] = useState<LiveService[]>([])
     const [cuttingService, setCuttingService] = useState<string | null>(null)
 
+    // Modal édition service
+    const [isEditOpen, setIsEditOpen] = useState(false)
+    const [editingService, setEditingService] = useState<Service | null>(null)
+    const [editStartTime, setEditStartTime] = useState("09:00")
+    const [editEndTime, setEditEndTime] = useState("12:00")
+
     useEffect(() => {
         fetchData()
         fetchLiveServices()
@@ -198,6 +204,60 @@ export default function GestionServicesPage() {
         setEndTime("12:00")
         setModalError("")
         setIsAddOpen(true)
+    }
+
+    const openEditModal = (service: Service) => {
+        setEditingService(service)
+        const start = new Date(service.start_time)
+        const end = new Date(service.end_time)
+        // Formater en HH:MM pour les inputs time
+        const formatTime = (date: Date) => {
+            const h = date.getHours().toString().padStart(2, '0')
+            const m = date.getMinutes().toString().padStart(2, '0')
+            return `${h}:${m}`
+        }
+        setEditStartTime(formatTime(start))
+        setEditEndTime(formatTime(end))
+        setModalError("")
+        setIsEditOpen(true)
+    }
+
+    const handleEditService = async () => {
+        if (!editingService) return
+        setModalError("")
+        setSubmitting(true)
+
+        const serviceDate = editingService.service_date
+        const startDateTime = new Date(`${serviceDate}T${editStartTime}:00`)
+        let endDateTime = new Date(`${serviceDate}T${editEndTime}:00`)
+        if (endDateTime <= startDateTime) {
+            endDateTime.setDate(endDateTime.getDate() + 1)
+        }
+
+        try {
+            const res = await fetch('/api/intranet/services/admin', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    service_id: editingService.id,
+                    start_time: startDateTime.toISOString(),
+                    end_time: endDateTime.toISOString()
+                })
+            })
+
+            if (res.ok) {
+                setIsEditOpen(false)
+                setEditingService(null)
+                fetchData()
+            } else {
+                const data = await res.json()
+                setModalError(data.error || "Erreur")
+            }
+        } catch (e) {
+            setModalError("Erreur réseau")
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     const prevWeek = () => {
@@ -463,12 +523,20 @@ export default function GestionServicesPage() {
                                                 key={service.id}
                                                 className="p-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded text-xs group relative"
                                             >
-                                                <button
-                                                    onClick={() => handleDeleteService(service.id)}
-                                                    className="absolute top-1 right-1 p-1 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
+                                                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => openEditModal(service)}
+                                                        className="p-1 text-gray-600 hover:text-blue-400"
+                                                    >
+                                                        <Edit2 className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteService(service.id)}
+                                                        className="p-1 text-gray-600 hover:text-red-400"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
                                                 <div className="text-gray-400 mb-1 text-[10px] md:text-xs">
                                                     {new Date(service.service_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
                                                 </div>
@@ -530,27 +598,78 @@ export default function GestionServicesPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">Début</label>
-                            <select
+                            <input
+                                type="time"
                                 value={startTime}
                                 onChange={e => setStartTime(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
-                            >
-                                {TIME_SLOTS.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
                         </div>
                         <div>
                             <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">Fin</label>
-                            <select
+                            <input
+                                type="time"
                                 value={endTime}
                                 onChange={e => setEndTime(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white"
-                            >
-                                {TIME_SLOTS.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal Éditer Service */}
+            <Modal
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                title={`Modifier le service`}
+                footer={
+                    <div className="flex justify-end gap-3">
+                        <button onClick={() => setIsEditOpen(false)} className="px-4 py-2 text-gray-400 hover:text-white">
+                            Annuler
+                        </button>
+                        <button
+                            onClick={handleEditService}
+                            disabled={submitting}
+                            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 font-bold disabled:opacity-50"
+                        >
+                            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer'}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-4">
+                    {modalError && (
+                        <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm">
+                            <AlertCircle className="w-4 h-4" />
+                            {modalError}
+                        </div>
+                    )}
+
+                    {editingService && (
+                        <div className="p-3 bg-white/5 rounded text-sm text-gray-400">
+                            Date : {new Date(editingService.service_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">Début</label>
+                            <input
+                                type="time"
+                                value={editStartTime}
+                                onChange={e => setEditStartTime(e.target.value)}
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 uppercase tracking-widest mb-2">Fin</label>
+                            <input
+                                type="time"
+                                value={editEndTime}
+                                onChange={e => setEditEndTime(e.target.value)}
+                                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-white rounded"
+                            />
                         </div>
                     </div>
                 </div>

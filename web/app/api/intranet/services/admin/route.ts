@@ -119,11 +119,6 @@ export async function POST(request: Request) {
     const startDate = new Date(start_time)
     const endDate = new Date(end_time)
 
-    // Validation horaires
-    if (startDate.getMinutes() % 15 !== 0 || endDate.getMinutes() % 15 !== 0) {
-        return NextResponse.json({ error: "Heures sur tranches de 15 min uniquement" }, { status: 400 })
-    }
-
     if (endDate <= startDate) {
         return NextResponse.json({ error: "Fin doit être après début" }, { status: 400 })
     }
@@ -189,4 +184,64 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ success: true })
+}
+
+// PUT - Modifier un service existant (direction uniquement)
+export async function PUT(request: Request) {
+    const authResult = await requireEditorAccess()
+    if (!authResult.authorized) {
+        return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+    }
+
+    const body = await request.json()
+    const { service_id, start_time, end_time } = body
+
+    if (!service_id || !start_time || !end_time) {
+        return NextResponse.json({ error: "service_id, start_time et end_time requis" }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+
+    // Récupérer le service existant
+    const { data: service, error: fetchError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('id', service_id)
+        .single()
+
+    if (fetchError || !service) {
+        return NextResponse.json({ error: "Service non trouvé" }, { status: 404 })
+    }
+
+    const startDate = new Date(start_time)
+    const endDate = new Date(end_time)
+
+    if (endDate <= startDate) {
+        return NextResponse.json({ error: "Fin doit être après début" }, { status: 400 })
+    }
+
+    const durationMinutes = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60))
+    const slotsCount = Math.floor(durationMinutes / 15)
+    const salaryPer15min = GRADE_SALARIES[service.grade_name] || 625
+    const salaryEarned = slotsCount * salaryPer15min
+
+    const { data: updated, error: updateError } = await supabase
+        .from('services')
+        .update({
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            duration_minutes: durationMinutes,
+            slots_count: slotsCount,
+            salary_earned: salaryEarned,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', service_id)
+        .select()
+        .single()
+
+    if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ service: updated })
 }
