@@ -21,7 +21,8 @@ import {
     X,
     BarChart3,
     UserSearch,
-    HelpCircle
+    HelpCircle,
+    Settings
 } from "lucide-react"
 import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
 import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
@@ -81,12 +82,14 @@ const menuItems = [
         icon: CalendarDays,
         roles: [...EMS_GRADES, 'recruiter']
     },
+    /* === HIDDEN - Uncomment to reactivate ===
     {
         href: "/intranet/candidatures",
         label: "Candidatures",
         icon: Users,
         roles: ['recruiter', 'direction']
     },
+    === END HIDDEN === */
     {
         href: "/intranet/tarifs",
         label: "Tarifs",
@@ -134,6 +137,18 @@ const menuItems = [
         label: "Permissions",
         icon: Shield,
         roles: ['direction']
+    },
+    {
+        href: "/intranet/effectif",
+        label: "Effectif",
+        icon: Users,
+        roles: ['direction']
+    },
+    {
+        href: "/intranet/parametres",
+        label: "Paramètres",
+        icon: Settings,
+        roles: [...EMS_GRADES, 'recruiter']
     },
 ]
 
@@ -187,19 +202,6 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             }
         }
         fetchProfile()
-        // Aussi récupérer l'IGN séparément si pas dans le profile
-        async function fetchIgn() {
-            try {
-                const res = await fetch('/api/user/ign')
-                if (res.ok) {
-                    const data = await res.json()
-                    setUserProfile(prev => prev ? { ...prev, ign: data.ign } : prev)
-                }
-            } catch (e) {
-                console.error('Erreur fetch IGN:', e)
-            }
-        }
-        fetchIgn()
     }, [])
 
     // Filtrer les items selon les rôles

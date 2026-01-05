@@ -5,6 +5,9 @@
   --background: #0a0a0a;
   --foreground: #ffffff;
   --text-secondary: #9ca3af;
+  --card-bg: #141414;
+  --card-border: #2a2a2a;
+  --input-bg: #1a1a1a;
 
   /* PHMC Colors - Medical Red */
   --ems-primary: #7f1d1d;

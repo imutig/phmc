@@ -44,7 +44,7 @@ export default function EMSPage() {
                             <ArrowLeft className="w-5 h-5" />
                             <span className="font-sans text-sm">Retour</span>
                         </Link>
-                        <div className="text-red-400 font-display font-bold tracking-widest text-sm">EMS RECRUITMENT</div>
+                        <div className="text-red-400 font-display font-bold tracking-widest text-sm">EMERGENCY MEDICAL SERVICES</div>
                     </div>
                 </nav>
 
@@ -69,9 +69,10 @@ export default function EMSPage() {
                                 Sauver des Vies
                             </h2>
                             <p className="font-sans text-gray-300 text-lg leading-relaxed mb-8 max-w-lg">
-                                Le Pillbox Hill Medical Center recherche des professionnels dévoués pour rejoindre nos équipes médicales d'urgence. Une carrière au service des citoyens de San Andreas.
+                                Les équipes médicales d'urgence du Pillbox Hill Medical Center interviennent 24h/24 pour porter secours aux citoyens de San Andreas.
                             </p>
 
+                            {/* === HIDDEN - APPLY BUTTON - Uncomment to reactivate ===
                             <button
                                 onClick={handleApplyClick}
                                 className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary"
@@ -81,6 +82,7 @@ export default function EMSPage() {
                                     <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </span>
                             </button>
+                            === END HIDDEN === */}
                         </motion.div>
 
                         <motion.div
@@ -137,10 +139,10 @@ export default function EMSPage() {
                             viewport={{ once: true }}
                             className="mb-12"
                         >
-                            <h2 className="font-display text-4xl font-bold uppercase mb-2">Postes Disponibles</h2>
+                            <h2 className="font-display text-4xl font-bold uppercase mb-2">Nos Équipes</h2>
                             <div className="h-1 w-24 bg-red-600" />
                             <p className="mt-4 text-gray-400 font-sans max-w-2xl">
-                                Commencez comme ambulancier et évoluez vers des postes à responsabilités au sein de notre équipe médicale.
+                                Découvrez les différentes spécialisations de notre équipe médicale d'urgence.
                             </p>
                         </motion.div>
 
@@ -169,7 +171,7 @@ export default function EMSPage() {
 
             </main>
 
-            {/* Prerequisites Modal */}
+            {/* === HIDDEN - PREREQUISITES MODAL - Uncomment to reactivate ===
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -208,6 +210,7 @@ export default function EMSPage() {
                     </div>
                 </div>
             </Modal>
+            === END HIDDEN === */}
         </>
     );
 }

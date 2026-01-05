@@ -137,7 +137,7 @@ function HomeContent() {
             </div>
           </motion.div>
           <div className="hidden md:flex gap-8 font-sans text-sm font-semibold tracking-wide">
-            {["SERVICES", "PROCESSUS", "SUIVI"].map((item, i) => (
+            {["SERVICES", "ÉQUIPE"].map((item, i) => (
               <motion.div
                 key={item}
                 initial={{ opacity: 0, y: -20 }}
@@ -214,7 +214,7 @@ function HomeContent() {
                 transition={{ duration: 2, repeat: Infinity }}
                 className="w-2 h-2 bg-red-400 rounded-full"
               />
-              Recrutements Ouverts - Session 2025
+              Services Médicaux d'Urgence
               <Sparkles className="w-3 h-3" />
             </span>
           </motion.div>
@@ -259,9 +259,8 @@ function HomeContent() {
             transition={{ delay: 0.9, duration: 0.6 }}
             className="font-sans text-gray-300 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            Le Pillbox Hill Medical Center recherche des professionnels dévoués
-            prêts à sauver des vies sur les routes de San Andreas.
-            Votre vocation commence ici.
+            Le Pillbox Hill Medical Center assure les services médicaux d'urgence
+            pour les citoyens de San Andreas. Espace réservé au personnel EMS.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -271,21 +270,31 @@ function HomeContent() {
             transition={{ delay: 1.1, duration: 0.6 }}
             className="flex flex-col md:flex-row gap-4 justify-center"
           >
-            <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
-              <Link href="/ems">
-                <button className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary">
+            {isAuthenticated ? (
+              <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/intranet">
+                  <button className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary">
+                    <span className="relative z-10 flex items-center gap-2">
+                      <LayoutDashboard className="w-4 h-4" />
+                      Accès Intranet
+                    </span>
+                  </button>
+                </Link>
+              </motion.div>
+            ) : (
+              <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+                <button
+                  onClick={() => signIn("discord", { callbackUrl: "/intranet" })}
+                  className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary"
+                >
                   <span className="relative z-10 flex items-center gap-2">
-                    Rejoindre les EMS
-                    <motion.div
-                      animate={{ y: [0, 5, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </motion.div>
+                    Connexion Staff
+                    <ArrowRight className="w-4 h-4" />
                   </span>
                 </button>
-              </Link>
-            </motion.div>
+              </motion.div>
+            )}
+            {/* === HIDDEN BUTTONS - Uncomment to reactivate ===
             <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
               <Link href="/suivi">
                 <button className="px-8 py-4 border border-white/30 hover:border-red-500/50 hover:bg-red-500/5 transition-all font-display font-bold tracking-widest uppercase ripple">
@@ -303,6 +312,7 @@ function HomeContent() {
                 </button>
               </Link>
             </motion.div>
+            === END HIDDEN BUTTONS === */}
           </motion.div>
         </motion.div>
 
@@ -402,7 +412,7 @@ function HomeContent() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-red-400 font-bold tracking-widest uppercase mt-6 group-hover:gap-4 transition-all">
-                    <span>Postuler maintenant</span>
+                    <span>En savoir plus</span>
                     <motion.div
                       animate={{ x: [0, 5, 0] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
@@ -440,33 +450,16 @@ function HomeContent() {
         </HorizontalSlide>
       </HorizontalScrollSection>
 
-      {/* Vertical Section - Carrière (ancienne slide 3) */}
-      <section className="py-32 px-6 bg-[#0a0a0a] border-t border-white/5">
-        <div className="max-w-4xl mx-auto text-center">
-          <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4 block">Votre Avenir</span>
-          <h2 className="font-display text-5xl md:text-7xl font-bold uppercase tracking-tighter mb-6">Carrière d'Exception</h2>
-          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-8">
-            Formation continue, évolution de carrière, et une équipe soudée. Votre vocation commence ici.
-          </p>
-          <Link href="/ems">
-            <MagneticButton className="px-8 py-4 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest uppercase inline-flex items-center gap-2">
-              Commencer l'aventure
-              <ArrowRight className="w-4 h-4" />
-            </MagneticButton>
-          </Link>
-        </div>
-      </section>
-
       {/* Text Reveal Section */}
       <section className="py-32 px-6 bg-[#050505]">
         <div className="max-w-4xl mx-auto text-center">
           <TextReveal className="font-display text-3xl md:text-5xl font-bold uppercase tracking-tighter leading-tight">
-            Rejoignez une équipe qui fait la différence chaque jour. Votre expertise peut sauver des vies.
+            Une équipe d'intervention médicale d'urgence au service des citoyens de San Andreas.
           </TextReveal>
         </div>
       </section>
 
-      {/* Process Section */}
+      {/* === HIDDEN - RECRUITMENT SECTION - Uncomment to reactivate ===
       <section id="process" className="py-32 px-6 bg-[#080808]">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -523,6 +516,7 @@ function HomeContent() {
           </motion.div>
         </div>
       </section>
+      === END HIDDEN === */}
 
       {/* Footer */}
       <motion.footer

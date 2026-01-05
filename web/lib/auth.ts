@@ -6,10 +6,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js"
 // Client Supabase pour le logging (lazy init pour éviter erreur au build)
 let supabaseAdmin: SupabaseClient | null = null
 function getSupabaseAdmin(): SupabaseClient | null {
-    if (!supabaseAdmin && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (!supabaseAdmin && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
         supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
+            process.env.SUPABASE_SERVICE_KEY
         )
     }
     return supabaseAdmin

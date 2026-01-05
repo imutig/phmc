@@ -211,6 +211,13 @@ export const ALL_PERMISSIONS: PermissionDefinition[] = [
         description: 'Modifier la configuration générale du système',
         category: 'admin',
         defaultGrades: ['direction']
+    },
+    {
+        key: 'manage_employees',
+        label: 'Gérer les employés',
+        description: 'Voir la liste des employés et synchroniser leurs données Discord',
+        category: 'admin',
+        defaultGrades: ['direction']
     }
 ]
 
