@@ -5,7 +5,7 @@
 -- Il est idempotent (peut être exécuté plusieurs fois sans erreur).
 -- Exécutez-le dans la console SQL de Supabase.
 -- ============================================================================
-Je
+
 -- ============================================================================
 -- 1. TABLES PRINCIPALES (UTILISATEURS & CANDIDATURES)
 -- ============================================================================
