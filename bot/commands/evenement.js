@@ -124,9 +124,10 @@ module.exports.handleModalSubmit = async function (interaction) {
     // Calculer les heures de début et fin
     const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     const duration = parseFloat(durationStr) || 1;
-    const endHours = hours + Math.floor(duration);
-    const endMinutes = minutes + (duration % 1) * 60;
-    const endTime = `${endHours.toString().padStart(2, '0')}:${Math.round(endMinutes).toString().padStart(2, '0')}`;
+    const totalEndMinutes = (hours * 60) + minutes + Math.round(duration * 60);
+    const endHours = Math.floor(totalEndMinutes / 60) % 24; // %24 pour gérer minuit
+    const endMinutes = totalEndMinutes % 60;
+    const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 
     // Formater la date pour Supabase
     const eventDateStr = eventDate.toISOString().split('T')[0];

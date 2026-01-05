@@ -208,26 +208,42 @@ export function ServiceButton({ userDiscordId, userName, gradeName, avatarUrl }:
                 )}
 
                 <div className="relative z-10 flex items-center gap-2">
-                    {isActive ? (
-                        <>
+                    <AnimatePresence mode="wait">
+                        {isActive ? (
                             <motion.div
-                                animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: 1, repeat: Infinity }}
+                                key="active"
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-center gap-2"
                             >
-                                <Square className="w-4 h-4 fill-current" />
+                                <motion.div
+                                    animate={{ scale: [1, 1.2, 1] }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                >
+                                    <Square className="w-4 h-4 fill-current" />
+                                </motion.div>
+                                <span className="font-mono text-sm font-medium">
+                                    {formatDuration(elapsed)}
+                                </span>
                             </motion.div>
-                            <span className="font-mono text-sm font-medium">
-                                {formatDuration(elapsed)}
-                            </span>
-                        </>
-                    ) : (
-                        <>
-                            <Play className="w-4 h-4" />
-                            <span className="text-sm font-medium hidden sm:inline">
-                                Prendre service
-                            </span>
-                        </>
-                    )}
+                        ) : (
+                            <motion.div
+                                key="inactive"
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-center gap-2"
+                            >
+                                <Play className="w-4 h-4" />
+                                <span className="text-sm font-medium hidden sm:inline">
+                                    Prendre service
+                                </span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </motion.button>
 
