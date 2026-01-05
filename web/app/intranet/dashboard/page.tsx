@@ -48,6 +48,7 @@ export default function DashboardPage() {
     const [year, setYear] = useState(0)
     const [services, setServices] = useState<any[]>([])
     const [liveServices, setLiveServices] = useState<any[]>([])
+    const [totalEmployeesCount, setTotalEmployeesCount] = useState(0)
     const [error, setError] = useState("")
 
     useEffect(() => {
@@ -85,6 +86,17 @@ export default function DashboardPage() {
             if (liveRes.ok) {
                 const liveData = await liveRes.json()
                 setLiveServices(liveData.services || [])
+            }
+
+            // Récupérer le nombre total d'employés
+            try {
+                const employeesRes = await fetch('/api/admin/employees')
+                if (employeesRes.ok) {
+                    const employeesData = await employeesRes.json()
+                    setTotalEmployeesCount(employeesData.employees?.length || 0)
+                }
+            } catch (e) {
+                // Fallback silencieux si pas accès admin
             }
         } catch (e) {
             setError("Erreur réseau")
@@ -207,19 +219,18 @@ export default function DashboardPage() {
     // Résumé de la semaine
     const weekSummary = useMemo((): WeekSummary => {
         const completedServices = services.filter(s => s.end_time)
-        // Calculer le nombre total d'employés uniques qui ont travaillé
-        const allEmployees = new Set(services.map(s => s.user_discord_id))
-        const activeEmployees = new Set(completedServices.map(s => s.user_discord_id))
+        // Calculer le nombre d'employés uniques qui ont travaillé cette semaine
+        const activeEmployeesSet = new Set(completedServices.map(s => s.user_discord_id))
 
         return {
             totalMinutes: completedServices.reduce((acc, s) => acc + (s.duration_minutes || 0), 0),
             totalSalary: completedServices.reduce((acc, s) => acc + (s.salary_earned || 0), 0),
             totalServices: completedServices.length,
-            activeEmployees: activeEmployees.size,
-            totalEmployees: Math.max(allEmployees.size, activeEmployees.size, 1), // Au moins 1
+            activeEmployees: activeEmployeesSet.size,
+            totalEmployees: totalEmployeesCount || 1, // Nombre total d'utilisateurs dans la table users
             previousWeekMinutes: 0 // TODO: Récupérer depuis l'API
         }
-    }, [services])
+    }, [services, totalEmployeesCount])
 
     const formatTime = (minutes: number) => {
         const h = Math.floor(minutes / 60)

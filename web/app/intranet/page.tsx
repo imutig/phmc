@@ -476,6 +476,112 @@ function NextEventWidget() {
     )
 }
 
+// Widget Événements du jour
+function TodayEventsWidget() {
+    const [events, setEvents] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        async function fetchTodayEvents() {
+            try {
+                const res = await fetch('/api/intranet/events?today=true')
+                if (res.ok) {
+                    const data = await res.json()
+                    setEvents(data.events || [])
+                }
+            } catch (e) {
+                console.error('Error fetching today events:', e)
+            }
+            setLoading(false)
+        }
+        fetchTodayEvents()
+    }, [])
+
+    const eventTypeColors: Record<string, { color: string; bg: string }> = {
+        rdv: { color: 'text-green-400', bg: 'bg-green-500/10' },
+        reunion: { color: 'text-blue-400', bg: 'bg-blue-500/10' },
+        formation: { color: 'text-purple-400', bg: 'bg-purple-500/10' },
+        ceremonie: { color: 'text-amber-400', bg: 'bg-amber-500/10' },
+        fete: { color: 'text-red-400', bg: 'bg-red-500/10' },
+        autre: { color: 'text-gray-400', bg: 'bg-gray-500/10' },
+        general: { color: 'text-gray-400', bg: 'bg-gray-500/10' },
+    }
+
+    if (loading) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+            >
+                <div className="flex items-center justify-center py-4">
+                    <MiniLoader />
+                </div>
+            </motion.div>
+        )
+    }
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="p-6 rounded-lg bg-[#141414] border border-[#2a2a2a]"
+        >
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-400" />
+                    <h3 className="font-display font-bold text-white">Aujourd'hui</h3>
+                </div>
+                <Link href="/intranet/planning" className="text-xs text-blue-400 hover:underline">
+                    Voir le planning
+                </Link>
+            </div>
+
+            {events.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Aucun événement aujourd'hui</p>
+            ) : (
+                <div className="space-y-2">
+                    {events.slice(0, 5).map(event => {
+                        const colors = eventTypeColors[event.event_type] || eventTypeColors.autre
+                        return (
+                            <div
+                                key={event.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg ${colors.bg} border border-transparent`}
+                            >
+                                <div className="flex-shrink-0 text-center min-w-[50px]">
+                                    <p className={`text-xs font-mono ${colors.color}`}>
+                                        {event.start_time?.slice(0, 5) || '--:--'}
+                                    </p>
+                                    <p className="text-xs text-gray-600">-</p>
+                                    <p className={`text-xs font-mono ${colors.color}`}>
+                                        {event.end_time?.slice(0, 5) || '--:--'}
+                                    </p>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-white truncate">{event.title}</p>
+                                    {event.location && (
+                                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" />
+                                            {event.location}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
+                    {events.length > 5 && (
+                        <p className="text-xs text-gray-500 text-center">
+                            +{events.length - 5} autres événements
+                        </p>
+                    )}
+                </div>
+            )}
+        </motion.div>
+    )
+}
+
 // Actions rapides
 const quickActions = [
     { href: "/intranet/ordonnance", label: "Créer ordonnance", icon: FileEdit, color: "text-purple-400", bg: "bg-purple-500/10" },
@@ -582,12 +688,15 @@ export default function IntranetPage() {
 
             {/* Layout 2 colonnes */}
             <div className="grid md:grid-cols-2 gap-6">
+                {/* Événements du jour */}
+                <TodayEventsWidget />
+
                 {/* Collègues en service */}
                 <ColleaguesWidget />
-
-                {/* Activité récente */}
-                <ActivityFeed maxItems={6} />
             </div>
+
+            {/* Activité récente */}
+            <ActivityFeed maxItems={6} />
 
             {/* Analytics Dashboard */}
             <DashboardAnalytics />
