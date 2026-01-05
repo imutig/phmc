@@ -45,7 +45,7 @@ export function validationErrorResponse(error: z.ZodError) {
 export const PatientCreateSchema = z.object({
     firstName: z.string().min(1, 'Prénom requis'),
     lastName: z.string().min(1, 'Nom requis'),
-    birthDate: z.string().min(1, 'Date de naissance requise'),
+    birthDate: z.string().optional().or(z.literal('')),
     fingerprint: z.string()
         .regex(/^\d{0,6}$/, 'L\'empreinte doit contenir 0 à 6 chiffres')
         .optional()

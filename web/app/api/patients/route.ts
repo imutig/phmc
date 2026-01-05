@@ -83,18 +83,20 @@ export async function POST(request: NextRequest) {
 
         const validatedData = validation.data
 
-        // Vérifier unicité empreinte
-        const { data: existing } = await supabase
-            .from('patients')
-            .select('id')
-            .eq('fingerprint', validatedData.fingerprint)
-            .single()
+        // Vérifier unicité empreinte (seulement si fournie)
+        if (validatedData.fingerprint) {
+            const { data: existing } = await supabase
+                .from('patients')
+                .select('id')
+                .eq('fingerprint', validatedData.fingerprint)
+                .single()
 
-        if (existing) {
-            return NextResponse.json(
-                { error: "Un patient avec cette empreinte existe déjà." },
-                { status: 409 }
-            )
+            if (existing) {
+                return NextResponse.json(
+                    { error: "Un patient avec cette empreinte existe déjà." },
+                    { status: 409 }
+                )
+            }
         }
 
         // Création
@@ -103,8 +105,8 @@ export async function POST(request: NextRequest) {
             .insert({
                 first_name: validatedData.firstName,
                 last_name: validatedData.lastName,
-                birth_date: validatedData.birthDate,
-                fingerprint: validatedData.fingerprint,
+                birth_date: validatedData.birthDate || null,
+                fingerprint: validatedData.fingerprint || null,
                 phone: validatedData.phone || null,
                 created_by: authResult.session!.user.discord_id
             })
