@@ -10,6 +10,8 @@ import {
 import { Breadcrumbs } from "@/components/ui/Breadcrumbs"
 import { getCurrentISOWeekAndYear, getDateOfISOWeek } from "@/lib/date-utils"
 import { DashboardSkeleton } from "@/components/ui/Skeleton"
+import { createClient } from "@/lib/supabase/client"
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 
 interface EmployeeStats {
     user_discord_id: string
@@ -88,6 +90,61 @@ export default function DashboardPage() {
             setError("Erreur réseau")
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Gestion du Realtime pour les services live
+    useEffect(() => {
+        const supabase = createClient()
+
+        const channel = supabase
+            .channel('dashboard-live-services')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'services'
+                },
+                (payload: RealtimePostgresChangesPayload<any>) => {
+                    handleRealtimeUpdate(payload)
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [])
+
+    const handleRealtimeUpdate = (payload: RealtimePostgresChangesPayload<any>) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload
+
+        if (eventType === 'INSERT') {
+            // Nouveau service démarré (end_time est null)
+            if (newRecord && !newRecord.end_time) {
+                setLiveServices(prev => {
+                    // Éviter les doublons
+                    if (prev.some(s => s.id === newRecord.id)) return prev
+                    return [...prev, newRecord]
+                })
+            }
+        } else if (eventType === 'UPDATE') {
+            if (newRecord) {
+                // Si end_time défini, le service est fini -> on retire
+                if (newRecord.end_time) {
+                    setLiveServices(prev => prev.filter(s => s.id !== newRecord.id))
+                    // Optionnel: rafraîchir les stats globales si le service vient de finir
+                    // fetchData() // Peut être trop lourd, à voir
+                } else {
+                    // Sinon update des infos (ex: changement de grade live ?)
+                    setLiveServices(prev => prev.map(s => s.id === newRecord.id ? newRecord : s))
+                }
+            }
+        } else if (eventType === 'DELETE') {
+            if (oldRecord) {
+                setLiveServices(prev => prev.filter(s => s.id !== oldRecord.id))
+            }
         }
     }
 
@@ -412,10 +469,14 @@ export default function DashboardPage() {
                                 <h3 className="font-display font-bold text-lg text-white">
                                     En service actuellement
                                 </h3>
-                                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-xs">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                    {liveServices.length} actif{liveServices.length !== 1 ? 's' : ''}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    {liveServices.length > 0 && (
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    )}
+                                    <span className={`text-xs ${liveServices.length > 0 ? 'text-green-400' : 'text-gray-500'}`}>
+                                        {liveServices.length} actif{liveServices.length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
                             </div>
                             {liveServices.length === 0 ? (
                                 <div className="text-center py-8">

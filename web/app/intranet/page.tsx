@@ -13,6 +13,8 @@ import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
 import { ActivityFeed } from "@/components/intranet/ActivityFeed"
 import { DashboardAnalytics } from "@/components/intranet/DashboardAnalytics"
 import { MiniLoader } from "@/components/ui/BouncingLoader"
+import { createClient } from "@/lib/supabase/client"
+import { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 
 // Types
 interface UserProfile {
@@ -43,21 +45,65 @@ function ColleaguesWidget() {
     const [colleagues, setColleagues] = useState<LiveService[]>([])
     const [loading, setLoading] = useState(true)
 
+    // Chargement initial + Realtime
     useEffect(() => {
-        async function fetchColleagues() {
-            try {
-                const res = await fetch('/api/intranet/services/admin?live=true')
-                if (res.ok) {
-                    const data = await res.json()
-                    setColleagues(data.services || [])
-                }
-            } catch (e) { }
-            setLoading(false)
-        }
         fetchColleagues()
-        const interval = setInterval(fetchColleagues, 30000) // Refresh every 30s
-        return () => clearInterval(interval)
+
+        const supabase = createClient()
+        const channel = supabase
+            .channel('home-colleagues')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'services'
+                },
+                (payload: RealtimePostgresChangesPayload<any>) => {
+                    const { eventType, new: newRecord, old: oldRecord } = payload
+
+                    if (eventType === 'INSERT') {
+                        // Si nouveau service en cours, ajouter
+                        if (newRecord && !newRecord.end_time) {
+                            setColleagues(prev => {
+                                if (prev.some(s => s.id === newRecord.id)) return prev
+                                return [...prev, newRecord]
+                            })
+                        }
+                    } else if (eventType === 'UPDATE') {
+                        if (newRecord) {
+                            if (newRecord.end_time) {
+                                // Service terminé -> retirer
+                                setColleagues(prev => prev.filter(s => s.id !== newRecord.id))
+                            } else {
+                                // Mise à jour (ex: changement grade)
+                                setColleagues(prev => prev.map(s => s.id === newRecord.id ? newRecord : s))
+                            }
+                        }
+                    } else if (eventType === 'DELETE') {
+                        if (oldRecord) {
+                            setColleagues(prev => prev.filter(s => s.id !== oldRecord.id))
+                        }
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
     }, [])
+
+    async function fetchColleagues() {
+        try {
+            const res = await fetch('/api/intranet/services/admin?live=true')
+            if (res.ok) {
+                const data = await res.json()
+                setColleagues(data.services || [])
+            }
+        } catch (e) { }
+        setLoading(false)
+    }
 
     const formatDuration = (startTime: string) => {
         const start = new Date(startTime).getTime()
@@ -77,7 +123,9 @@ function ColleaguesWidget() {
         >
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <div className="flex items-center justify-center w-2 h-2">
+                        {colleagues.length > 0 && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+                    </div>
                     <h3 className="font-display font-bold text-lg text-white">Collègues en service</h3>
                 </div>
                 <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
@@ -139,34 +187,74 @@ function UserStatsWidget({ userDiscordId }: { userDiscordId: string }) {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        async function fetchStats() {
-            try {
-                const { week, year } = getCurrentISOWeekAndYear()
-                const [servicesRes, liveRes] = await Promise.all([
-                    fetch(`/api/intranet/services?week=${week}&year=${year}`),
-                    fetch('/api/intranet/services/live')
-                ])
-
-                if (servicesRes.ok) {
-                    const data = await servicesRes.json()
-                    const services = data.services || []
-                    const completedServices = services.filter((s: any) => s.end_time)
-                    setStats({
-                        totalMinutes: completedServices.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0),
-                        totalSalary: completedServices.reduce((acc: number, s: any) => acc + (s.salary_earned || 0), 0),
-                        serviceCount: completedServices.length
-                    })
-                }
-
-                if (liveRes.ok) {
-                    const liveData = await liveRes.json()
-                    setLiveService(liveData.service || null)
-                }
-            } catch (e) { }
-            setLoading(false)
-        }
         fetchStats()
+
+        const supabase = createClient()
+        const channel = supabase
+            .channel('home-user-stats')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'services',
+                    filter: `user_discord_id=eq.${userDiscordId}`
+                },
+                (payload: RealtimePostgresChangesPayload<any>) => {
+                    const { eventType, new: newRecord, old: oldRecord } = payload
+
+                    if (eventType === 'INSERT') {
+                        if (newRecord && !newRecord.end_time) {
+                            setLiveService(newRecord)
+                        }
+                    } else if (eventType === 'UPDATE') {
+                        if (newRecord) {
+                            if (newRecord.end_time) {
+                                setLiveService(null)
+                                // Optionnel: rafraîchir les stats complètes
+                                // fetchStats() 
+                            } else {
+                                setLiveService(newRecord)
+                            }
+                        }
+                    } else if (eventType === 'DELETE') {
+                        setLiveService(null)
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
     }, [userDiscordId])
+
+    async function fetchStats() {
+        try {
+            const { week, year } = getCurrentISOWeekAndYear()
+            const [servicesRes, liveRes] = await Promise.all([
+                fetch(`/api/intranet/services?week=${week}&year=${year}`),
+                fetch('/api/intranet/services/live')
+            ])
+
+            if (servicesRes.ok) {
+                const data = await servicesRes.json()
+                const services = data.services || []
+                const completedServices = services.filter((s: any) => s.end_time)
+                setStats({
+                    totalMinutes: completedServices.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0),
+                    totalSalary: completedServices.reduce((acc: number, s: any) => acc + (s.salary_earned || 0), 0),
+                    serviceCount: completedServices.length
+                })
+            }
+
+            if (liveRes.ok) {
+                const liveData = await liveRes.json()
+                setLiveService(liveData.service || null)
+            }
+        } catch (e) { }
+        setLoading(false)
+    }
 
     const formatTime = (minutes: number) => {
         const h = Math.floor(minutes / 60)

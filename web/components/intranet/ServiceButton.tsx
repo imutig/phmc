@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Play, Square, Clock, AlertCircle } from "lucide-react"
 
@@ -33,9 +34,11 @@ export function ServiceButton({ userDiscordId, userName, gradeName, avatarUrl }:
     const [elapsed, setElapsed] = useState(0)
     const [showWarning, setShowWarning] = useState(false)
     const [warningMessage, setWarningMessage] = useState("")
+    const [mounted, setMounted] = useState(false)
 
     // Charger le service en cours au montage
     useEffect(() => {
+        setMounted(true)
         fetchLiveService()
     }, [])
 
@@ -229,39 +232,43 @@ export function ServiceButton({ userDiscordId, userName, gradeName, avatarUrl }:
             </motion.button>
 
             {/* Modal d'avertissement */}
-            <AnimatePresence>
-                {showWarning && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                        onClick={() => setShowWarning(false)}
-                    >
+            {mounted && createPortal(
+                <AnimatePresence>
+                    {showWarning && (
                         <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-[#1a1a1a] border border-yellow-500/30 rounded-lg p-6 max-w-md"
-                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                            onClick={() => setShowWarning(false)}
                         >
-                            <div className="flex items-center gap-3 mb-4">
-                                <AlertCircle className="w-6 h-6 text-yellow-500" />
-                                <h3 className="font-display font-bold text-lg">Attention</h3>
-                            </div>
-                            <p className="text-gray-400 text-sm whitespace-pre-line mb-4">
-                                {warningMessage}
-                            </p>
-                            <button
-                                onClick={() => setShowWarning(false)}
-                                className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-md text-sm font-medium transition-colors"
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.9, opacity: 0 }}
+                                className="bg-[#1a1a1a] border border-yellow-500/30 rounded-lg p-6 max-w-md shadow-2xl relative z-[101]"
+                                onClick={e => e.stopPropagation()}
                             >
-                                Compris
-                            </button>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <AlertCircle className="w-6 h-6 text-yellow-500" />
+                                    <h3 className="font-display font-bold text-lg text-white">Attention</h3>
+                                </div>
+                                <p className="text-gray-300 text-sm whitespace-pre-line mb-6 leading-relaxed">
+                                    {warningMessage}
+                                </p>
+                                <button
+                                    onClick={() => setShowWarning(false)}
+                                    className="w-full py-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20 rounded-md text-sm font-bold transition-colors"
+                                >
+                                    Compris
+                                </button>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )
+            }
         </>
     )
 }
