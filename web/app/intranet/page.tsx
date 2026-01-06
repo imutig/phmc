@@ -1,15 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-    HeartPulse, Users, DollarSign, Pill, FileText, TrendingUp, Shield,
+    HeartPulse, Users, DollarSign, FileText, TrendingUp, Shield,
     Calendar, MapPin, Clock, Play, Square, ChevronRight, Activity, Timer, Wallet,
-    FileEdit, BookOpen
+    BookOpen, ClipboardList, Stethoscope, Loader2, X
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getCurrentISOWeekAndYear } from "@/lib/date-utils"
+import { useToast } from "@/contexts/ToastContext"
 
 import { MiniLoader } from "@/components/ui/BouncingLoader"
 import { createClient } from "@/lib/supabase/client"
@@ -586,11 +588,9 @@ function TodayEventsWidget() {
     )
 }
 
-// Actions rapides
-const quickActions = [
-    { href: "/intranet/ordonnance", label: "Créer ordonnance", icon: FileEdit, color: "text-purple-400", bg: "bg-purple-500/10" },
-    { href: "/intranet/tarifs", label: "Consulter tarifs", icon: DollarSign, color: "text-green-400", bg: "bg-green-500/10" },
-    { href: "/intranet/medicaments", label: "Médicaments", icon: Pill, color: "text-blue-400", bg: "bg-blue-500/10" },
+// Actions rapides - liens statiques
+const staticQuickActions = [
+    { href: "/intranet/tarifs", label: "Consulter les tarifs", icon: DollarSign, color: "text-green-400", bg: "bg-green-500/10" },
     { href: "/intranet/wiki", label: "Wiki", icon: BookOpen, color: "text-amber-400", bg: "bg-amber-500/10" },
 ]
 
@@ -606,8 +606,76 @@ const roleColors: Record<string, string> = {
 }
 
 export default function IntranetPage() {
+    const router = useRouter()
+    const toast = useToast()
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [loading, setLoading] = useState(true)
+
+    // Modal states
+    const [showUSIModal, setShowUSIModal] = useState(false)
+    const [showVisitModal, setShowVisitModal] = useState(false)
+    const [modalData, setModalData] = useState({ firstName: "", lastName: "" })
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    // Handler pour créer/trouver patient puis rediriger
+    async function handlePatientAction(type: 'usi' | 'visit') {
+        if (!modalData.firstName.trim() || !modalData.lastName.trim()) {
+            toast.error("Veuillez remplir le prénom et le nom")
+            return
+        }
+
+        setIsProcessing(true)
+        try {
+            // Chercher le patient existant
+            const searchRes = await fetch(`/api/patients?search=${encodeURIComponent(modalData.firstName + ' ' + modalData.lastName)}&limit=1`)
+            const searchData = await searchRes.json()
+
+            let patientId: string
+
+            // Vérifier si on a un match exact
+            const exactMatch = searchData.patients?.find((p: any) =>
+                p.first_name.toLowerCase() === modalData.firstName.toLowerCase() &&
+                p.last_name.toLowerCase() === modalData.lastName.toLowerCase()
+            )
+
+            if (exactMatch) {
+                patientId = exactMatch.id
+            } else {
+                // Créer le patient
+                const createRes = await fetch('/api/patients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        firstName: modalData.firstName.trim(),
+                        lastName: modalData.lastName.trim()
+                    })
+                })
+                const createData = await createRes.json()
+
+                if (!createRes.ok) {
+                    throw new Error(createData.error || 'Erreur création patient')
+                }
+                patientId = createData.patient.id
+                toast.success('Patient créé')
+            }
+
+            // Fermer le modal et rediriger
+            setShowUSIModal(false)
+            setShowVisitModal(false)
+            setModalData({ firstName: "", lastName: "" })
+
+            if (type === 'usi') {
+                router.push(`/intranet/patients/${patientId}?action=newUSI`)
+            } else {
+                router.push(`/intranet/patients/${patientId}?action=newExam`)
+            }
+        } catch (error: any) {
+            console.error('Erreur:', error)
+            toast.error(error.message || 'Une erreur est survenue')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
 
     useEffect(() => {
         async function fetchProfile() {
@@ -649,7 +717,7 @@ export default function IntranetPage() {
                     )}
                     <div>
                         <h1 className="font-display text-2xl md:text-3xl font-bold text-white">
-                            Bienvenue{profile?.displayName ? `, ${profile.displayName.split(' ')[0]}` : ''} !
+                            Bienvenue{profile?.displayName ? `, ${profile.displayName}` : ''} !
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
                             {loading ? (
@@ -680,7 +748,26 @@ export default function IntranetPage() {
             >
                 <h2 className="font-display font-bold text-lg text-white mb-3">Actions rapides</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-onboarding="quick-actions">
-                    {quickActions.map((action) => (
+                    {/* Créer USI - Modal */}
+                    <button
+                        onClick={() => setShowUSIModal(true)}
+                        className="p-4 rounded-lg bg-purple-500/10 border border-transparent hover:border-purple-400 transition-all group card-premium text-left"
+                    >
+                        <ClipboardList className="w-6 h-6 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-sm font-medium text-purple-400">Créer un USI</p>
+                    </button>
+
+                    {/* Créer Visite - Modal */}
+                    <button
+                        onClick={() => setShowVisitModal(true)}
+                        className="p-4 rounded-lg bg-blue-500/10 border border-transparent hover:border-blue-400 transition-all group card-premium text-left"
+                    >
+                        <Stethoscope className="w-6 h-6 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+                        <p className="text-sm font-medium text-blue-400">Créer une visite</p>
+                    </button>
+
+                    {/* Liens statiques */}
+                    {staticQuickActions.map((action) => (
                         <Link key={action.href} href={action.href}>
                             <div className={`p-4 rounded-lg ${action.bg} border border-transparent hover:border-current transition-all group card-premium`}>
                                 <action.icon className={`w-6 h-6 ${action.color} mb-2 group-hover:scale-110 transition-transform`} />
@@ -700,9 +787,155 @@ export default function IntranetPage() {
                 <ColleaguesWidget />
             </div>
 
+            {/* Modal Créer USI */}
+            <AnimatePresence>
+                {showUSIModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                        onClick={() => !isProcessing && setShowUSIModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 max-w-md w-full"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <ClipboardList className="w-5 h-5 text-purple-400" />
+                                    Créer un USI
+                                </h3>
+                                <button onClick={() => setShowUSIModal(false)} disabled={isProcessing} className="text-gray-400 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Nom *</label>
+                                        <input
+                                            type="text"
+                                            value={modalData.lastName}
+                                            onChange={(e) => setModalData({ ...modalData, lastName: e.target.value })}
+                                            className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500/50"
+                                            placeholder="DUPONT"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Prénom *</label>
+                                        <input
+                                            type="text"
+                                            value={modalData.firstName}
+                                            onChange={(e) => setModalData({ ...modalData, firstName: e.target.value })}
+                                            className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-purple-500/50"
+                                            placeholder="Jean"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Si le patient existe déjà, vous serez redirigé vers son dossier.
+                                </p>
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUSIModal(false)}
+                                        disabled={isProcessing}
+                                        className="flex-1 py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={() => handlePatientAction('usi')}
+                                        disabled={isProcessing}
+                                        className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Continuer"}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-
-
+            {/* Modal Créer Visite */}
+            <AnimatePresence>
+                {showVisitModal && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                        onClick={() => !isProcessing && setShowVisitModal(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 max-w-md w-full"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <Stethoscope className="w-5 h-5 text-blue-400" />
+                                    Créer une visite médicale
+                                </h3>
+                                <button onClick={() => setShowVisitModal(false)} disabled={isProcessing} className="text-gray-400 hover:text-white">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Nom *</label>
+                                        <input
+                                            type="text"
+                                            value={modalData.lastName}
+                                            onChange={(e) => setModalData({ ...modalData, lastName: e.target.value })}
+                                            className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500/50"
+                                            placeholder="DUPONT"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Prénom *</label>
+                                        <input
+                                            type="text"
+                                            value={modalData.firstName}
+                                            onChange={(e) => setModalData({ ...modalData, firstName: e.target.value })}
+                                            className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500/50"
+                                            placeholder="Jean"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Si le patient existe déjà, vous serez redirigé vers son dossier.
+                                </p>
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowVisitModal(false)}
+                                        disabled={isProcessing}
+                                        className="flex-1 py-2 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={() => handlePatientAction('visit')}
+                                        disabled={isProcessing}
+                                        className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        {isProcessing ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Continuer"}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

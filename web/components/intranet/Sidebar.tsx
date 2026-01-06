@@ -97,6 +97,7 @@ const menuItems = [
         icon: DollarSign,
         roles: [...EMS_GRADES, 'recruiter']
     },
+    /* === HIDDEN - Uncomment to reactivate ===
     {
         href: "/intranet/medicaments",
         label: "Médicaments",
@@ -109,6 +110,7 @@ const menuItems = [
         icon: FileText,
         roles: [...EMS_GRADES]
     },
+    === END HIDDEN === */
     {
         href: "/intranet/patients",
         label: "Patients",

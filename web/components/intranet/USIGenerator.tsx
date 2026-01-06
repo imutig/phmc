@@ -17,6 +17,7 @@ interface USI {
 interface USIGeneratorProps {
     patientId: string
     patientName: string
+    autoCreate?: boolean
 }
 
 const STAFF_GRADES = [
@@ -27,13 +28,13 @@ const STAFF_GRADES = [
     { value: "Direction", label: "Direction" },
 ]
 
-export function USIGenerator({ patientId, patientName }: USIGeneratorProps) {
+export function USIGenerator({ patientId, patientName, autoCreate = false }: USIGeneratorProps) {
     // Liste des USI
     const [usiList, setUsiList] = useState<USI[]>([])
     const [isLoadingList, setIsLoadingList] = useState(true)
 
-    // Mode création/édition
-    const [mode, setMode] = useState<'list' | 'create' | 'edit' | 'view'>('list')
+    // Mode création/édition - start in create mode if autoCreate
+    const [mode, setMode] = useState<'list' | 'create' | 'edit' | 'view'>(autoCreate ? 'create' : 'list')
     const [selectedUsi, setSelectedUsi] = useState<USI | null>(null)
 
     // Formulaire de génération

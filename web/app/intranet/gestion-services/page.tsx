@@ -327,13 +327,6 @@ export default function GestionServicesPage() {
                         Vue d'ensemble des services de tous les employés
                     </p>
                 </div>
-                <a
-                    href={`/api/intranet/services/export?week=${week}&year=${year}`}
-                    className="hidden md:flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors"
-                >
-                    <Download className="w-4 h-4" />
-                    Export CSV
-                </a>
             </motion.div>
 
             {/* Navigation semaine */}

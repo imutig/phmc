@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, User, Phone, Calendar, MapPin, Heart, AlertTriangle,
@@ -79,6 +80,8 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const { data: session } = useSession();
     const [patient, setPatient] = useState<Patient | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -90,6 +93,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const [activeTab, setActiveTab] = useState<'medical' | 'appointments' | 'exams' | 'usi'>('medical');
     const [medicalExams, setMedicalExams] = useState<MedicalExam[]>([]);
     const [isLoadingExams, setIsLoadingExams] = useState(false);
+    const [autoCreateUSI, setAutoCreateUSI] = useState(false);
 
     // Appointment Chat State
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -169,6 +173,25 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         fetchPatient();
         fetchMedicalExams();
     }, [resolvedParams.id]);
+
+    // Handle URL query params for tab and action
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        const action = searchParams.get('action');
+
+        // Set active tab from URL
+        if (tab === 'usi' || tab === 'medical' || tab === 'appointments' || tab === 'exams') {
+            setActiveTab(tab);
+        }
+
+        // Handle actions
+        if (action === 'newExam') {
+            router.push(`/intranet/patients/${resolvedParams.id}/medical-exam/new`);
+        } else if (action === 'newUSI') {
+            setActiveTab('usi');
+            setAutoCreateUSI(true);
+        }
+    }, [searchParams, resolvedParams.id, router, setAutoCreateUSI]);
 
     // Fetch messages when an appointment is selected
     useEffect(() => {
@@ -1096,7 +1119,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                         >
-                            <USIGenerator patientId={patient.id} patientName={`${patient.first_name} ${patient.last_name}`} />
+                            <USIGenerator patientId={patient.id} patientName={`${patient.first_name} ${patient.last_name}`} autoCreate={autoCreateUSI} />
                         </motion.div>
                     )}
                 </AnimatePresence>
