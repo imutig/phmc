@@ -16,8 +16,8 @@ const oswald = Oswald({
 });
 
 export const metadata: Metadata = {
-  title: "Portail Recrutement | Pillbox Hill Medical Center",
-  description: "Portail officiel de recrutement pour les services médicaux d'urgence de San Andreas.",
+  title: "Intranet | Pillbox Hill Medical Center",
+  description: "Intranet officiel du Pillbox Hill Medical Center - Gestion des services médicaux de Los Santos.",
   icons: {
     icon: "/logo_phmc.webp",
     apple: "/logo_phmc.webp",
