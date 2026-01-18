@@ -40,7 +40,7 @@ export default async function IntranetLayout({
     return (
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
             <IntranetClientWrapper userData={{ roles: userRoles }} userPermissions={userPermissions}>
-                <SnowEffect />
+                {/* <SnowEffect /> */}
                 <GlobalSearch />
                 <Sidebar userRoles={userRoles} />
                 <TopbarWrapper userRoles={userRoles} />

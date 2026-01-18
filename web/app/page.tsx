@@ -65,7 +65,7 @@ function HomeContent() {
 
   return (
     <>
-      <SnowEffect />
+      {/* <SnowEffect /> */}
       <Suspense fallback={null}>
         <SearchParamsHandler onAccessDenied={() => setShowAccessDenied(true)} />
       </Suspense>
