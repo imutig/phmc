@@ -112,6 +112,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
     // Form state for editable fields
     const [formData, setFormData] = useState({
+        first_name: "",
+        last_name: "",
+        phone: "",
+        birth_date: "",
         photo_url: "",
         address: "",
         blood_type: "",
@@ -136,6 +140,10 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             setPatient(data.patient);
             setAppointments(data.appointments || []);
             setFormData({
+                first_name: data.patient.first_name || "",
+                last_name: data.patient.last_name || "",
+                phone: data.patient.phone || "",
+                birth_date: data.patient.birth_date || "",
                 photo_url: data.patient.photo_url || "",
                 address: data.patient.address || "",
                 blood_type: data.patient.blood_type || "",
@@ -631,29 +639,65 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                                             </div>
                                         </div>
 
-                                        {/* Basic Info (Read-only) */}
+                                        {/* Basic Info (Editable) */}
                                         <div className="flex-1 grid sm:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase tracking-wider">Nom</label>
-                                                <p className="text-white font-medium">{patient.last_name}</p>
+                                                <input
+                                                    type="text"
+                                                    name="last_name"
+                                                    value={formData.last_name}
+                                                    onChange={handleInputChange}
+                                                    className="w-full mt-1 bg-zinc-800 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
+                                                />
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase tracking-wider">Prénom</label>
-                                                <p className="text-white font-medium">{patient.first_name}</p>
+                                                <input
+                                                    type="text"
+                                                    name="first_name"
+                                                    value={formData.first_name}
+                                                    onChange={handleInputChange}
+                                                    className="w-full mt-1 bg-zinc-800 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
+                                                />
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1">
                                                     <Phone className="w-3 h-3" /> Téléphone
                                                 </label>
-                                                <p className="text-white">{patient.phone || "-"}</p>
+                                                <input
+                                                    type="text"
+                                                    name="phone"
+                                                    value={formData.phone}
+                                                    onChange={handleInputChange}
+                                                    placeholder="555-1234"
+                                                    className="w-full mt-1 bg-zinc-800 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
+                                                />
                                             </div>
                                             <div>
                                                 <label className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1">
                                                     <Calendar className="w-3 h-3" /> Date de naissance
                                                 </label>
-                                                <p className="text-white">
-                                                    {patient.birth_date ? new Date(patient.birth_date).toLocaleDateString('fr-FR') : "-"}
-                                                </p>
+                                                <input
+                                                    type="date"
+                                                    name="birth_date"
+                                                    value={formData.birth_date}
+                                                    onChange={handleInputChange}
+                                                    className="w-full mt-1 bg-zinc-800 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
+                                                />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3" /> Adresse
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="address"
+                                                    value={formData.address}
+                                                    onChange={handleInputChange}
+                                                    placeholder="123 Main Street, Los Santos"
+                                                    className="w-full mt-1 bg-zinc-800 border border-white/10 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500/50"
+                                                />
                                             </div>
                                             <div className="sm:col-span-2">
                                                 <label className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1">
@@ -1119,7 +1163,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -20 }}
                         >
-                            <USIGenerator patientId={patient.id} patientName={`${patient.first_name} ${patient.last_name}`} autoCreate={autoCreateUSI} />
+                            <USIGenerator patientId={patient.id} patientName={`${patient.first_name} ${patient.last_name}`} patientAddress={patient.address || undefined} autoCreate={autoCreateUSI} />
                         </motion.div>
                     )}
                 </AnimatePresence>

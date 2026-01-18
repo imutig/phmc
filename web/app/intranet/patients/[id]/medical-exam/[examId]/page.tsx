@@ -343,113 +343,116 @@ export default function MedicalExamPage({ params }: { params: Promise<{ id: stri
 
 
 
-    // Générer le rapport au format texte (copy-paste)
+    // Générer le rapport au format texte (copy-paste) - Format compact pour fenêtres étroites in-game
     const generateTextReport = () => {
         if (!patient) return '';
         const visitTypeLabel = VISIT_TYPES.find(t => t.value === formData.visit_type)?.label || formData.visit_type;
         const checkBox = (val: boolean) => val ? '☑' : '☐';
-        const statusText = (val: string | null) => val === 'normal' ? 'Normal' : 'Anormal';
+        const statusText = (val: string | null) => val === 'normal' ? 'OK' : 'Anormal';
 
-        let text = `══════════════════════════════════════════════════\n`;
-        text += `         PILLBOX HILL MEDICAL CENTER\n`;
-        text += `            RAPPORT DE VISITE\n`;
-        text += `══════════════════════════════════════════════════\n\n`;
+        let text = `═══════════════════════\n`;
+        text += `  PILLBOX HILL MC\n`;
+        text += `   RAPPORT VISITE\n`;
+        text += `═══════════════════════\n\n`;
 
-        text += `▶ INFORMATIONS PATIENT\n`;
-        text += `─────────────────────────\n`;
-        text += `**Nom:** ${patient.last_name.toUpperCase()} ${patient.first_name}\n`;
-        text += `**Date de naissance:** ${patient.birth_date ? new Date(patient.birth_date).toLocaleDateString('fr-FR') : 'Non renseignée'}\n`;
-        text += `**Téléphone:** ${patient.phone || 'Non renseigné'}\n`;
-        text += `**Profession:** ${formData.profession || 'Non renseignée'}\n\n`;
+        text += `► PATIENT\n`;
+        text += `───────────────────\n`;
+        text += `Nom: ${patient.last_name.toUpperCase()}\n`;
+        text += `Prénom: ${patient.first_name}\n`;
+        text += `Naissance: ${patient.birth_date ? new Date(patient.birth_date).toLocaleDateString('fr-FR') : 'N/C'}\n`;
+        text += `Tél: ${patient.phone || 'N/C'}\n\n`;
 
-        text += `▶ VISITE\n`;
-        text += `─────────────────────────\n`;
-        text += `**Type:** ${visitTypeLabel}\n`;
-        text += `**Date:** ${formData.visit_date ? new Date(formData.visit_date).toLocaleDateString('fr-FR') : 'Non datée'}\n\n`;
+        text += `► VISITE\n`;
+        text += `───────────────────\n`;
+        text += `Type: ${visitTypeLabel}\n`;
+        text += `Date: ${formData.visit_date ? new Date(formData.visit_date).toLocaleDateString('fr-FR') : 'N/C'}\n\n`;
 
         if (formData.visit_type === 'psycho_test') {
             // Rapport psychotechnique
-            text += `▶ ÉVALUATION DE L'AGRESSIVITÉ\n`;
-            text += `─────────────────────────\n`;
+            text += `► ÉVAL. AGRESSIVITÉ\n`;
+            text += `───────────────────\n`;
             PSYCHO_AGGRESSION_QUESTIONS.forEach(q => {
-                const response = formData.psycho_data[q.id] || 'Non renseigné';
+                const response = formData.psycho_data[q.id] || 'N/C';
                 text += `Q: ${q.question}\n`;
                 text += `R: ${response}\n\n`;
             });
 
-            text += `▶ MISES EN SITUATION\n`;
-            text += `─────────────────────────\n`;
+            text += `► MISES EN SITUATION\n`;
+            text += `───────────────────\n`;
             PSYCHO_SCENARIOS.forEach((scenario, index) => {
-                const response = formData.psycho_data[scenario.id] || 'Non renseigné';
+                const response = formData.psycho_data[scenario.id] || 'N/C';
                 text += `Scénario ${index + 1}:\n`;
                 text += `${scenario.situation}\n`;
-                text += `Réponse: ${response}\n\n`;
+                text += `→ ${response}\n\n`;
             });
 
-            text += `▶ CONCLUSION\n`;
-            text += `─────────────────────────\n`;
+            text += `► CONCLUSION\n`;
+            text += `───────────────────\n`;
             if (formData.psycho_favorable || formData.no_contraindication) {
                 text += `${checkBox(true)} AVIS FAVORABLE\n`;
-                text += `Le patient a passé avec succès le test psychotechnique\n`;
-                text += `et ne présente aucune contre-indication au port d'arme.\n`;
+                text += `Test psychotechnique\n`;
+                text += `réussi - RAS.\n`;
             } else {
                 text += `${checkBox(false)} AVIS DÉFAVORABLE\n`;
-                text += `Le patient n'a pas satisfait aux critères du test psychotechnique.\n`;
+                text += `Critères non satisfaits.\n`;
             }
         } else {
             // Rapport médical (classique ou MFL)
-            text += `▶ ANTÉCÉDENTS\n`;
-            text += `─────────────────────────\n`;
-            text += `**Allergies:** ${formData.allergies ? formData.allergies_details || 'Oui' : 'Aucune'}\n`;
-            text += `**Traitement actuel:** ${formData.current_treatment || 'Aucun'}\n`;
+            text += `► ANTÉCÉDENTS\n`;
+            text += `───────────────────\n`;
+            text += `Allergies: ${formData.allergies ? formData.allergies_details || 'Oui' : 'Aucune'}\n`;
+            text += `Traitement: ${formData.current_treatment || 'Aucun'}\n`;
             text += `${checkBox(formData.tobacco)} Tabac\n`;
             text += `${checkBox(formData.alcohol)} Alcool\n\n`;
 
-            text += `▶ EXAMEN CLINIQUE\n`;
-            text += `─────────────────────────\n`;
+            text += `► EXAMEN CLINIQUE\n`;
+            text += `───────────────────\n`;
             if (formData.height_cm && formData.weight_kg) {
                 const imc = parseFloat(formData.weight_kg) / Math.pow(parseFloat(formData.height_cm) / 100, 2);
-                text += `**Taille:** ${formData.height_cm} cm | **Poids:** ${formData.weight_kg} kg | **IMC:** ${imc.toFixed(1)}\n`;
+                text += `Taille: ${formData.height_cm}cm\n`;
+                text += `Poids: ${formData.weight_kg}kg\n`;
+                text += `IMC: ${imc.toFixed(1)}\n`;
             }
             if (formData.blood_pressure_systolic && formData.blood_pressure_diastolic) {
-                text += `**Tension:** ${formData.blood_pressure_systolic}/${formData.blood_pressure_diastolic} mmHg\n`;
+                text += `TA: ${formData.blood_pressure_systolic}/${formData.blood_pressure_diastolic}\n`;
             }
             if (formData.heart_rate_bpm) {
-                text += `**Fréquence cardiaque:** ${formData.heart_rate_bpm} bpm\n`;
+                text += `FC: ${formData.heart_rate_bpm} bpm\n`;
             }
             text += `\n`;
-            text += `**Audition:** ${statusText(formData.hearing)}\n`;
-            text += `**Respiratoire:** ${statusText(formData.respiratory)}\n`;
-            text += `**Cardiovasculaire:** ${statusText(formData.cardiovascular)}\n`;
-            text += `**Système nerveux:** ${statusText(formData.nervous_system)}\n`;
-            text += `**Locomoteur:** ${statusText(formData.musculoskeletal)}\n`;
-            text += `**Peau/Muqueuses:** ${statusText(formData.skin)}\n`;
-            text += `**Biologie:** ${statusText(formData.blood_test)}\n`;
+            text += `Audition: ${statusText(formData.hearing)}\n`;
+            text += `Respi: ${statusText(formData.respiratory)}\n`;
+            text += `Cardio: ${statusText(formData.cardiovascular)}\n`;
+            text += `Neuro: ${statusText(formData.nervous_system)}\n`;
+            text += `Locomoteur: ${statusText(formData.musculoskeletal)}\n`;
+            text += `Peau: ${statusText(formData.skin)}\n`;
+            text += `Bio: ${statusText(formData.blood_test)}\n`;
             if (formData.other_observations) {
-                text += `**Observations:** ${formData.other_observations}\n`;
+                text += `Obs: ${formData.other_observations}\n`;
             }
             text += `\n`;
 
-            text += `▶ CONCLUSION\n`;
-            text += `─────────────────────────\n`;
+            text += `► CONCLUSION\n`;
+            text += `───────────────────\n`;
             if (formData.no_contraindication) {
                 if (formData.visit_type === 'medical_mfl') {
-                    text += `${checkBox(true)} APTE\n`;
-                    text += `Aucune contre-indication médicale à la pratique\n`;
-                    text += `du football américain au niveau professionnel (MFL).\n`;
+                    text += `${checkBox(true)} APTE MFL\n`;
+                    text += `Aucune contre-indication.\n`;
                 } else {
-                    text += `${checkBox(true)} APTE - Aucune contre-indication n'a été constatée\n`;
+                    text += `${checkBox(true)} APTE\n`;
+                    text += `Aucune contre-indication.\n`;
                 }
             } else {
-                text += `${checkBox(true)} INAPTE - Réserves émises\n`;
+                text += `${checkBox(true)} INAPTE\n`;
+                text += `Réserves émises.\n`;
             }
         }
         text += `\n`;
 
         text += `Médecin: ${formData.examiner_signature || 'Non signé'}\n`;
-        text += `Date du rapport: ${new Date().toLocaleDateString('fr-FR')}\n`;
-        text += `──────────────────────────────────────────────────\n`;
-        text += `      Document confidentiel - PHMC\n`;
+        text += `Date: ${new Date().toLocaleDateString('fr-FR')}\n`;
+        text += `───────────────────\n`;
+        text += `Confidentiel - PHMC\n`;
 
         return text;
     };

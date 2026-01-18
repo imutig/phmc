@@ -17,6 +17,7 @@ interface USI {
 interface USIGeneratorProps {
     patientId: string
     patientName: string
+    patientAddress?: string
     autoCreate?: boolean
 }
 
@@ -28,7 +29,7 @@ const STAFF_GRADES = [
     { value: "Direction", label: "Direction" },
 ]
 
-export function USIGenerator({ patientId, patientName, autoCreate = false }: USIGeneratorProps) {
+export function USIGenerator({ patientId, patientName, patientAddress, autoCreate = false }: USIGeneratorProps) {
     // Liste des USI
     const [usiList, setUsiList] = useState<USI[]>([])
     const [isLoadingList, setIsLoadingList] = useState(true)
@@ -36,6 +37,9 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
     // Mode création/édition - start in create mode if autoCreate
     const [mode, setMode] = useState<'list' | 'create' | 'edit' | 'view'>(autoCreate ? 'create' : 'list')
     const [selectedUsi, setSelectedUsi] = useState<USI | null>(null)
+
+    // Mode manuel (sans IA)
+    const [manualMode, setManualMode] = useState(false)
 
     // Formulaire de génération
     const [staffName, setStaffName] = useState("")
@@ -81,7 +85,7 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
         fetchUsiList()
     }, [fetchUsiList])
 
-    const handleGenerate = async () => {
+    const handleGenerate = async (forceGenerate = false) => {
         if (!notes.trim()) {
             setError("Veuillez entrer des notes brèves")
             return
@@ -97,10 +101,12 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     patientName,
+                    patientAddress,
                     date,
                     staffName,
                     staffGrade,
-                    notes
+                    notes,
+                    forceGenerate
                 })
             })
 
@@ -111,8 +117,8 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
 
             const data = await res.json()
 
-            // Vérifier si l'IA demande des clarifications
-            if (data.needsClarification && data.questions && data.questions.length > 0) {
+            // Vérifier si l'IA demande des clarifications (sauf si forceGenerate)
+            if (!forceGenerate && data.needsClarification && data.questions && data.questions.length > 0) {
                 setClarificationQuestions(data.questions)
                 setGeneratedHtml("")
             } else if (data.html) {
@@ -126,6 +132,26 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
         } finally {
             setIsGenerating(false)
         }
+    }
+
+    // Démarrer en mode manuel (sans IA)
+    const startManualMode = () => {
+        setManualMode(true)
+        setGeneratedHtml(`
+            <p><strong>Patient:</strong> ${patientName}</p>
+            ${patientAddress ? `<p><strong>Adresse:</strong> ${patientAddress}</p>` : ''}
+            <p><strong>Date:</strong> ${date}</p>
+            <hr/>
+            <p>Rédigez votre rapport ici...</p>
+        `)
+        setEditableHtml(`
+            <p><strong>Patient:</strong> ${patientName}</p>
+            ${patientAddress ? `<p><strong>Adresse:</strong> ${patientAddress}</p>` : ''}
+            <p><strong>Date:</strong> ${date}</p>
+            <hr/>
+            <p>Rédigez votre rapport ici...</p>
+        `)
+        setTitle(`USI - ${patientName} - ${new Date().toLocaleDateString('fr-FR')}`)
     }
 
     const handleSaveUsi = async () => {
@@ -448,9 +474,15 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
                         </div>
                     )}
 
-                    <button onClick={handleGenerate} disabled={isGenerating || !notes.trim()} className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors">
-                        {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" />Génération...</> : <><FileCheck className="w-5 h-5" />Générer le rapport</>}
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={() => handleGenerate()} disabled={isGenerating || !notes.trim()} className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors">
+                            {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" />Génération...</> : <><FileCheck className="w-5 h-5" />Générer avec IA</>}
+                        </button>
+                        <button onClick={startManualMode} disabled={isGenerating} className="flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors">
+                            <Edit3 className="w-5 h-5" />
+                            Manuel
+                        </button>
+                    </div>
                 </div>
 
                 {/* Questions de clarification de l'IA */}
@@ -474,9 +506,19 @@ export function USIGenerator({ patientId, patientName, autoCreate = false }: USI
                                     </li>
                                 ))}
                             </ul>
-                            <p className="text-xs text-zinc-500">
-                                Complétez vos notes avec ces informations et relancez la génération.
-                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                                <p className="text-xs text-zinc-500 flex-1">
+                                    Complétez vos notes ou générez quand même avec les infos actuelles.
+                                </p>
+                                <button
+                                    onClick={() => handleGenerate(true)}
+                                    disabled={isGenerating}
+                                    className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+                                >
+                                    <FileCheck className="w-4 h-4" />
+                                    Générer quand même
+                                </button>
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>

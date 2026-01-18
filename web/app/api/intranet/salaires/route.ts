@@ -82,6 +82,18 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
+        // Récupérer les grades actuels de tous les utilisateurs
+        const { data: users } = await supabase
+            .from('users')
+            .select('discord_id, grade')
+
+        const currentGradesMap = new Map<string, string>()
+        for (const user of users || []) {
+            if (user.discord_id && user.grade) {
+                currentGradesMap.set(user.discord_id, user.grade)
+            }
+        }
+
         // Agréger par utilisateur
         const employeesMap = new Map<string, {
             discordId: string
@@ -98,23 +110,30 @@ export async function GET(request: Request) {
         for (const service of services || []) {
             const key = service.user_discord_id
             const existing = employeesMap.get(key)
-            const gradeInfo = GRADE_SALARIES[service.grade_name] || { perSlot: 625, maxWeekly: 80000 }
+
+            // Utiliser le grade ACTUEL pour le max, pas le grade du service
+            const currentGrade = currentGradesMap.get(key) || service.grade_name
+            const currentGradeInfo = GRADE_SALARIES[currentGrade] || { perSlot: 625, maxWeekly: 80000 }
 
             if (existing) {
                 existing.totalMinutes += service.duration_minutes || 0
                 existing.totalSlots += service.slots_count || 0
                 existing.totalSalary += service.salary_earned || 0
                 existing.services += 1
+                // Mettre à jour le max avec le grade actuel
+                existing.maxWeekly = currentGradeInfo.maxWeekly
+                existing.grade = currentGrade
+                existing.gradeDisplay = GRADE_DISPLAY[currentGrade] || currentGrade
             } else {
                 employeesMap.set(key, {
                     discordId: service.user_discord_id,
                     name: service.user_name,
-                    grade: service.grade_name,
-                    gradeDisplay: GRADE_DISPLAY[service.grade_name] || service.grade_name,
+                    grade: currentGrade,
+                    gradeDisplay: GRADE_DISPLAY[currentGrade] || currentGrade,
                     totalMinutes: service.duration_minutes || 0,
                     totalSlots: service.slots_count || 0,
                     totalSalary: service.salary_earned || 0,
-                    maxWeekly: gradeInfo.maxWeekly,
+                    maxWeekly: currentGradeInfo.maxWeekly,
                     services: 1
                 })
             }
@@ -153,3 +172,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
     }
 }
+
