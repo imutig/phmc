@@ -439,3 +439,15 @@ function checkConfiguration() {
 
 // Démarrage
 client.login(process.env.DISCORD_TOKEN);
+
+// Gestion des erreurs non capturées pour éviter le crash silencieux
+process.on('unhandledRejection', (reason, promise) => {
+    log.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+});
+
+process.on('uncaughtException', (error) => {
+    log.error(`Uncaught Exception: ${error.message}`);
+    log.error(error.stack);
+    // On laisse le processus s'arrêter proprement, Railway le redémarrera
+    process.exit(1);
+});

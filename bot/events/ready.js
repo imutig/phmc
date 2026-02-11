@@ -1,10 +1,15 @@
 const log = require('../utils/logger');
 const equipeCommand = require('../commands/equipe');
 
+let initialized = false;
+
 module.exports = {
-    name: 'ready',
+    name: 'clientReady',
     once: true,
     async execute(client, { registerCommands, checkConfiguration, setupRealtimeListener, setupLiveServicesListener, checkNewApplications, startApiServer, startReminderChecker, supabase, initPointeuseListener }) {
+        if (initialized) return;
+        initialized = true;
+
         log.startup();
         log.connected(client.user.tag, client.guilds.cache.size);
 

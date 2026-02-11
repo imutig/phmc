@@ -8,7 +8,7 @@ const { createAppointmentChannel, sendAppointmentReceivedDM } = require('../serv
  */
 function createApiServer(client, supabase) {
     const app = express();
-    const PORT = process.env.BOT_API_PORT || 3001;
+    const PORT = process.env.PORT || process.env.BOT_API_PORT || 3001;
     const API_SECRET = process.env.BOT_API_SECRET;
 
     app.use(cors());

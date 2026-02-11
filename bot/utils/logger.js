@@ -26,8 +26,11 @@ function logJson(level, message, metadata = {}) {
     };
 
     // En production ou si JSON_LOGS est activé, sortie JSON pure
-    if (process.env.NODE_ENV === 'production' || process.env.JSON_LOGS === 'true') {
+    if (process.env.JSON_LOGS === 'true') {
         console.log(JSON.stringify(logEntry));
+    } else if (process.env.NODE_ENV === 'production') {
+        // En prod sans JSON_LOGS, on peut logger en JSON mais peut-être pas doubler ?
+        // On va rester sur le style console pour le moment si JSON_LOGS n'est pas explicite
     }
 }
 
