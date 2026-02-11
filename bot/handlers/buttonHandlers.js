@@ -13,6 +13,8 @@ const docLabels = {
 
 // Handler pour le vote
 async function handleVote(interaction, applicationId, isFor) {
+    await interaction.deferReply({ flags: 64 });
+
     const { data: existingVote } = await supabase
         .from('application_votes')
         .select('id, vote')
@@ -22,9 +24,8 @@ async function handleVote(interaction, applicationId, isFor) {
 
     if (existingVote) {
         if (existingVote.vote === isFor) {
-            return interaction.reply({
-                content: `Vous avez déjà voté ${isFor ? '👍 pour' : '👎 contre'}.`,
-                flags: 64
+            return interaction.editReply({
+                content: `Vous avez déjà voté ${isFor ? '👍 pour' : '👎 contre'}.`
             });
         }
 
@@ -33,9 +34,8 @@ async function handleVote(interaction, applicationId, isFor) {
             .update({ vote: isFor })
             .eq('id', existingVote.id);
 
-        await interaction.reply({
-            content: `Vote modifié: ${isFor ? '👍 Pour' : '👎 Contre'}`,
-            flags: 64
+        await interaction.editReply({
+            content: `Vote modifié: ${isFor ? '👍 Pour' : '👎 Contre'}`
         });
     } else {
         await supabase
@@ -47,9 +47,8 @@ async function handleVote(interaction, applicationId, isFor) {
                 vote: isFor
             });
 
-        await interaction.reply({
-            content: `Vote enregistré: ${isFor ? '👍 Pour' : '👎 Contre'}`,
-            flags: 64
+        await interaction.editReply({
+            content: `Vote enregistré: ${isFor ? '👍 Pour' : '👎 Contre'}`
         });
     }
 
@@ -69,6 +68,8 @@ async function handleVote(interaction, applicationId, isFor) {
 
 // Handler pour le changement de statut
 async function handleStatus(interaction, applicationId, newStatus) {
+    await interaction.deferReply({ flags: 64 });
+
     const actorName = interaction.member?.displayName || interaction.user.username;
 
     await supabase
@@ -84,7 +85,7 @@ async function handleStatus(interaction, applicationId, newStatus) {
         details: { new_status: newStatus }
     });
 
-    await interaction.reply({ content: '✅ Statut mis à jour.', flags: 64 });
+    await interaction.editReply({ content: '✅ Statut mis à jour.' });
 
     await interaction.channel.send({
         content: `📊 **Statut:** En examen (par ${actorName})`
@@ -93,6 +94,8 @@ async function handleStatus(interaction, applicationId, newStatus) {
 
 // Handler pour l'alerte
 async function handleAlert(interaction, applicationId) {
+    await interaction.deferReply({ flags: 64 });
+
     const { data: application } = await supabase
         .from('applications')
         .select('alert_user_id, first_name, last_name')
@@ -100,7 +103,7 @@ async function handleAlert(interaction, applicationId) {
         .single();
 
     if (!application) {
-        return interaction.reply({ content: '❌ Candidature introuvable.', flags: 64 });
+        return interaction.editReply({ content: '❌ Candidature introuvable.' });
     }
 
     if (application.alert_user_id === interaction.user.id) {
@@ -109,16 +112,15 @@ async function handleAlert(interaction, applicationId) {
             .update({ alert_user_id: null })
             .eq('id', applicationId);
 
-        await interaction.reply({ content: '🔕 Alerte désactivée.', flags: 64 });
+        await interaction.editReply({ content: '🔕 Alerte désactivée.' });
     } else {
         await supabase
             .from('applications')
             .update({ alert_user_id: interaction.user.id })
             .eq('id', applicationId);
 
-        await interaction.reply({
-            content: `🔔 Alerte activée ! Vous serez mentionné au prochain message de **${application.first_name} ${application.last_name}**.`,
-            flags: 64
+        await interaction.editReply({
+            content: `🔔 Alerte activée ! Vous serez mentionné au prochain message de **${application.first_name} ${application.last_name}**.`
         });
     }
 }
@@ -178,6 +180,9 @@ async function handleConvocationConfirm(interaction, targetUserId) {
         });
     }
 
+    // On utilise deferUpdate pour accuser réception immédiatement
+    await interaction.deferUpdate();
+
     // Mettre à jour le message original avec la confirmation
     const originalEmbed = interaction.message.embeds[0];
     const { EmbedBuilder } = require('discord.js');
@@ -186,7 +191,7 @@ async function handleConvocationConfirm(interaction, targetUserId) {
         .setColor(0x22C55E) // Vert
         .addFields({ name: '✅ Réponse', value: `<@${interaction.user.id}> a confirmé sa présence.`, inline: false });
 
-    await interaction.update({
+    await interaction.editReply({
         embeds: [updatedEmbed],
         components: [] // Retirer les boutons
     });

@@ -25,21 +25,21 @@ module.exports = {
         const delayStr = interaction.options.getString('dans');
         const message = interaction.options.getString('message');
 
+        await interaction.deferReply({ flags: 64 });
+
         // Parser le délai
         const delayMs = parseDelay(delayStr);
         if (!delayMs) {
-            return interaction.reply({
-                content: '❌ Format de délai invalide. Utilisez: `30m`, `2h`, `1h30`, `90m`',
-                flags: 64
+            return interaction.editReply({
+                content: '❌ Format de délai invalide. Utilisez: `30m`, `2h`, `1h30`, `90m`'
             });
         }
 
         // Limiter à 24h max
         const maxDelay = 24 * 60 * 60 * 1000;
         if (delayMs > maxDelay) {
-            return interaction.reply({
-                content: '❌ Le délai maximum est de 24 heures.',
-                flags: 64
+            return interaction.editReply({
+                content: '❌ Le délai maximum est de 24 heures.'
             });
         }
 
@@ -88,7 +88,7 @@ module.exports = {
             })
             .setFooter({ text: `Dans ${formatDuration(delayMs)}` });
 
-        await interaction.reply({ embeds: [embed], flags: 64 });
+        await interaction.editReply({ embeds: [embed] });
     }
 };
 

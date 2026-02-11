@@ -63,16 +63,18 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
         const dateStr = interaction.fields.getTextInputValue('date');
         const timeStr = interaction.fields.getTextInputValue('time');
 
+        await interaction.deferReply({ flags: 64 });
+
         // Parser la date
         const dateMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
         if (!dateMatch) {
-            return interaction.reply({ content: '❌ Format de date invalide. Utilisez JJ/MM/AAAA', flags: 64 });
+            return interaction.editReply({ content: '❌ Format de date invalide. Utilisez JJ/MM/AAAA' });
         }
 
         // Parser l'heure
         const timeMatch = timeStr.match(/^(\d{1,2}):(\d{2})$/);
         if (!timeMatch) {
-            return interaction.reply({ content: '❌ Format d\'heure invalide. Utilisez HH:MM', flags: 64 });
+            return interaction.editReply({ content: '❌ Format d\'heure invalide. Utilisez HH:MM' });
         }
 
         const scheduledDate = new Date(
@@ -84,7 +86,7 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
         );
 
         if (scheduledDate < new Date()) {
-            return interaction.reply({ content: '❌ La date doit être dans le futur.', flags: 64 });
+            return interaction.editReply({ content: '❌ La date doit être dans le futur.' });
         }
 
         // Récupérer le RDV
@@ -95,7 +97,7 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
             .single();
 
         if (fetchError || !appointment) {
-            return interaction.reply({ content: '❌ Rendez-vous introuvable.', flags: 64 });
+            return interaction.editReply({ content: '❌ Rendez-vous introuvable.' });
         }
 
         const roleLabel = getUserRoleLabel(interaction);
@@ -113,7 +115,7 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
             .eq('id', appointmentId);
 
         if (updateError) {
-            return interaction.reply({ content: '❌ Erreur lors de la mise à jour: ' + updateError.message, flags: 64 });
+            return interaction.editReply({ content: '❌ Erreur lors de la mise à jour: ' + updateError.message });
         }
 
         // Envoyer un embed dans le salon
@@ -150,7 +152,7 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
             // DMs fermés, on continue
         }
 
-        await interaction.reply({ content: '✅ Rendez-vous programmé avec succès !', flags: 64 });
+        await interaction.editReply({ content: '✅ Rendez-vous programmé avec succès !' });
     } catch (error) {
         await handleInteractionError(error, interaction, 'rdv_schedule_modal');
     }
@@ -161,6 +163,8 @@ async function handleScheduleModal(interaction, supabase, appointmentId) {
  */
 async function handleClose(interaction, supabase, appointmentId) {
     try {
+        await interaction.deferReply({ flags: 64 });
+
         // Récupérer le RDV
         const { data: appointment, error: fetchError } = await supabase
             .from('appointments')
@@ -169,7 +173,7 @@ async function handleClose(interaction, supabase, appointmentId) {
             .single();
 
         if (fetchError || !appointment) {
-            return interaction.reply({ content: '❌ Rendez-vous introuvable.', flags: 64 });
+            return interaction.editReply({ content: '❌ Rendez-vous introuvable.' });
         }
 
         const displayName = interaction.member.displayName || interaction.user.username;
@@ -206,7 +210,7 @@ async function handleClose(interaction, supabase, appointmentId) {
         }
 
         // Fermer le canal
-        await interaction.reply({ content: '🔒 Fermeture du ticket dans 5 secondes...', flags: 64 });
+        await interaction.editReply({ content: '🔒 Fermeture du ticket dans 5 secondes...' });
 
         setTimeout(async () => {
             try {

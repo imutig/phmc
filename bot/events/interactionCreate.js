@@ -65,6 +65,14 @@ async function handleSlashCommand(interaction, supabase) {
 
         await command.execute(interaction);
     } catch (error) {
+        // Si c'est une interaction expirée, juste logger sans tenter de répondre
+        if (error.code === 10062) {
+            log.error(`Interaction expirée pour /${interaction.commandName} (utilisateur: ${interaction.user?.id})`, {
+                context: `command:${interaction.commandName}`,
+                errorName: error.name,
+            });
+            return;
+        }
         await handleInteractionError(error, interaction, `command:${interaction.commandName}`);
     }
 }
@@ -162,6 +170,7 @@ async function handleButtonInteraction(interaction, supabase) {
         }
 
     } catch (error) {
+        if (error.code === 10062) return; // Interaction expirée, rien à faire
         await handleInteractionError(error, interaction, `button:${customId}`);
     }
 }
@@ -201,6 +210,7 @@ async function handleModalInteraction(interaction, supabase) {
         }
 
     } catch (error) {
+        if (error.code === 10062) return;
         await handleInteractionError(error, interaction, `modal:${customId}`);
     }
 }
@@ -218,6 +228,7 @@ async function handleSelectMenuInteraction(interaction, supabase) {
         }
 
     } catch (error) {
+        if (error.code === 10062) return;
         await handleInteractionError(error, interaction, `selectmenu:${customId}`);
     }
 }

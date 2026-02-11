@@ -49,6 +49,8 @@ module.exports = {
         const motif = interaction.options.getString('motif') || 'Non spécifié';
         const convocateur = interaction.member;
 
+        await interaction.deferReply();
+
         // Créer l'embed de convocation
         const embed = new EmbedBuilder()
             .setColor(0xDC2626) // Rouge
@@ -78,7 +80,7 @@ module.exports = {
             );
 
         // Mentionner l'utilisateur et envoyer
-        await interaction.reply({
+        await interaction.editReply({
             content: `<@${targetUser.id}>`,
             embeds: [embed],
             components: [buttons]

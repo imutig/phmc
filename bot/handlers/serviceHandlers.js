@@ -58,6 +58,8 @@ function formatDuration(mins) {
  */
 async function handleServiceStart(interaction, supabase) {
     try {
+        await interaction.deferReply({ flags: 64 });
+
         // Vérifier si déjà en service
         const { data: existing } = await supabase
             .from('services')
@@ -67,13 +69,13 @@ async function handleServiceStart(interaction, supabase) {
             .maybeSingle();
 
         if (existing) {
-            return interaction.reply({ content: '❌ Vous avez déjà un service en cours.', flags: 64 });
+            return interaction.editReply({ content: '❌ Vous avez déjà un service en cours.' });
         }
 
         // Trouver le grade
         const userGrade = await findUserGrade(interaction, supabase);
         if (!userGrade) {
-            return interaction.reply({ content: '❌ Aucun grade EMS trouvé. Contactez la direction.', flags: 64 });
+            return interaction.editReply({ content: '❌ Aucun grade EMS trouvé. Contactez la direction.' });
         }
 
         const now = new Date();
@@ -97,10 +99,10 @@ async function handleServiceStart(interaction, supabase) {
             });
 
         if (error) {
-            return interaction.reply({ content: '❌ Erreur: ' + error.message, flags: 64 });
+            return interaction.editReply({ content: '❌ Erreur: ' + error.message });
         }
 
-        await interaction.reply({ content: '✅ **Service pris !** Bon courage.', flags: 64 });
+        await interaction.editReply({ content: '✅ **Service pris !** Bon courage.' });
     } catch (error) {
         await handleInteractionError(error, interaction, 'service_start');
     }
@@ -111,6 +113,8 @@ async function handleServiceStart(interaction, supabase) {
  */
 async function handleServiceEnd(interaction, supabase) {
     try {
+        await interaction.deferReply({ flags: 64 });
+
         // Récupérer le service en cours
         const { data: service } = await supabase
             .from('services')
@@ -120,7 +124,7 @@ async function handleServiceEnd(interaction, supabase) {
             .maybeSingle();
 
         if (!service) {
-            return interaction.reply({ content: '❌ Vous n\'êtes pas en service.', flags: 64 });
+            return interaction.editReply({ content: '❌ Vous n\'êtes pas en service.' });
         }
 
         const now = new Date();
@@ -160,16 +164,15 @@ async function handleServiceEnd(interaction, supabase) {
             .eq('id', service.id);
 
         if (error) {
-            return interaction.reply({ content: '❌ Erreur: ' + error.message, flags: 64 });
+            return interaction.editReply({ content: '❌ Erreur: ' + error.message });
         }
 
         const salaryMsg = slotsCount > 0
             ? `💰 ${slotsCount} versement${slotsCount > 1 ? 's' : ''} = $${salaryEarned.toLocaleString()}`
             : '💰 Aucun versement (service trop court)';
 
-        await interaction.reply({
-            content: `✅ **Service terminé !**\n⏱️ ${formatDuration(durationMinutes)} • ${salaryMsg}`,
-            flags: 64
+        await interaction.editReply({
+            content: `✅ **Service terminé !**\n⏱️ ${formatDuration(durationMinutes)} • ${salaryMsg}`
         });
     } catch (error) {
         await handleInteractionError(error, interaction, 'service_end');
@@ -225,12 +228,14 @@ async function handleServiceAddModal(interaction, supabase) {
         const finStr = interaction.fields.getTextInputValue('fin');
         const dateStr = interaction.fields.getTextInputValue('date') || '';
 
+        await interaction.deferReply({ flags: 64 });
+
         // Parser les heures
         const debutMatch = debutStr.match(/^(\d{1,2}):(\d{2})$/);
         const finMatch = finStr.match(/^(\d{1,2}):(\d{2})$/);
 
         if (!debutMatch || !finMatch) {
-            return interaction.reply({ content: '❌ Format d\'heure invalide. Utilisez HH:MM (ex: 14:30)', flags: 64 });
+            return interaction.editReply({ content: '❌ Format d\'heure invalide. Utilisez HH:MM (ex: 14:30)' });
         }
 
         const debutHour = parseInt(debutMatch[1]);
@@ -239,7 +244,7 @@ async function handleServiceAddModal(interaction, supabase) {
         const finMin = parseInt(finMatch[2]);
 
         if (debutMin % 15 !== 0 || finMin % 15 !== 0) {
-            return interaction.reply({ content: '❌ Les minutes doivent être sur des tranches de 15 (:00, :15, :30, :45)', flags: 64 });
+            return interaction.editReply({ content: '❌ Les minutes doivent être sur des tranches de 15 (:00, :15, :30, :45)' });
         }
 
         // Parser la date
@@ -249,7 +254,7 @@ async function handleServiceAddModal(interaction, supabase) {
             if (dateMatch) {
                 serviceDate = new Date(dateMatch[3], dateMatch[2] - 1, dateMatch[1]);
             } else {
-                return interaction.reply({ content: '❌ Format de date invalide. Utilisez JJ/MM/AAAA', flags: 64 });
+                return interaction.editReply({ content: '❌ Format de date invalide. Utilisez JJ/MM/AAAA' });
             }
         }
 
@@ -267,12 +272,12 @@ async function handleServiceAddModal(interaction, supabase) {
         const durationMinutes = Math.floor(durationMs / (1000 * 60));
 
         if (durationMinutes < 15) {
-            return interaction.reply({ content: '❌ Service minimum de 15 minutes', flags: 64 });
+            return interaction.editReply({ content: '❌ Service minimum de 15 minutes' });
         }
 
         const userGrade = await findUserGrade(interaction, supabase);
         if (!userGrade) {
-            return interaction.reply({ content: '❌ Aucun grade EMS trouvé. Contactez la direction.', flags: 64 });
+            return interaction.editReply({ content: '❌ Aucun grade EMS trouvé. Contactez la direction.' });
         }
 
         const slotsCount = Math.floor(durationMinutes / 15);
@@ -298,12 +303,11 @@ async function handleServiceAddModal(interaction, supabase) {
 
         if (error) {
             log.error('Erreur insertion service:', error);
-            return interaction.reply({ content: '❌ Erreur: ' + error.message, flags: 64 });
+            return interaction.editReply({ content: '❌ Erreur: ' + error.message });
         }
 
-        await interaction.reply({
-            content: `✅ **Service enregistré !**\n📅 ${startTime.toLocaleDateString('fr-FR')} • ⏰ ${debutStr} → ${finStr} • ⏱️ ${formatDuration(durationMinutes)} • 💰 $${salaryEarned.toLocaleString()}`,
-            flags: 64
+        await interaction.editReply({
+            content: `✅ **Service enregistré !**\n📅 ${startTime.toLocaleDateString('fr-FR')} • ⏰ ${debutStr} → ${finStr} • ⏱️ ${formatDuration(durationMinutes)} • 💰 $${salaryEarned.toLocaleString()}`
         });
     } catch (error) {
         await handleInteractionError(error, interaction, 'service_add_modal');

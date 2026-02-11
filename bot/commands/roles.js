@@ -68,6 +68,9 @@ module.exports = {
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
 
+        // On diffère avec ephemeral par défaut pour les commandes de gestion
+        await interaction.deferReply({ flags: 64 });
+
         if (subcommand === 'ajouter') {
             const roleType = interaction.options.getString('type');
             const role = interaction.options.getRole('role');
@@ -81,9 +84,8 @@ module.exports = {
                 .single();
 
             if (existing) {
-                return interaction.reply({
-                    content: `❌ Le rôle **${role.name}** est déjà configuré comme **${ROLE_TYPES[roleType].name}**.`,
-                    ephemeral: true
+                return interaction.editReply({
+                    content: `❌ Le rôle **${role.name}** est déjà configuré comme **${ROLE_TYPES[roleType].name}**.`
                 });
             }
 
@@ -98,9 +100,8 @@ module.exports = {
 
             if (error) {
                 console.error('Erreur ajout rôle:', error);
-                return interaction.reply({
-                    content: '❌ Erreur lors de l\'ajout du rôle.',
-                    ephemeral: true
+                return interaction.editReply({
+                    content: '❌ Erreur lors de l\'ajout du rôle.'
                 });
             }
 
@@ -118,7 +119,7 @@ module.exports = {
             }
 
             embed.setTimestamp();
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
 
         } else if (subcommand === 'retirer') {
             const role = interaction.options.getRole('role');
@@ -129,9 +130,8 @@ module.exports = {
                 .eq('discord_role_id', role.id);
 
             if (findError || !existing || existing.length === 0) {
-                return interaction.reply({
-                    content: `❌ Le rôle **${role.name}** n'est pas configuré.`,
-                    ephemeral: true
+                return interaction.editReply({
+                    content: `❌ Le rôle **${role.name}** n'est pas configuré.`
                 });
             }
 
@@ -142,15 +142,13 @@ module.exports = {
 
             if (error) {
                 console.error('Erreur suppression rôle:', error);
-                return interaction.reply({
-                    content: '❌ Erreur lors de la suppression du rôle.',
-                    ephemeral: true
+                return interaction.editReply({
+                    content: '❌ Erreur lors de la suppression du rôle.'
                 });
             }
 
-            await interaction.reply({
-                content: `✅ Le rôle **${role.name}** a été retiré de la configuration.`,
-                ephemeral: false
+            await interaction.editReply({
+                content: `✅ Le rôle **${role.name}** a été retiré de la configuration.`
             });
 
         } else if (subcommand === 'liste') {
@@ -161,9 +159,8 @@ module.exports = {
 
             if (error) {
                 console.error('Erreur liste rôles:', error);
-                return interaction.reply({
-                    content: '❌ Erreur lors de la récupération des rôles.',
-                    ephemeral: true
+                return interaction.editReply({
+                    content: '❌ Erreur lors de la récupération des rôles.'
                 });
             }
 
@@ -192,7 +189,7 @@ module.exports = {
                 });
             }
 
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
         }
     }
 };

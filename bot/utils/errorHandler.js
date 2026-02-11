@@ -31,8 +31,11 @@ async function handleInteractionError(error, interaction, context = 'unknown') {
         .setTimestamp();
 
     // Tenter de répondre à l'utilisateur
+    // Si l'erreur est déjà "Unknown interaction" (10062), l'interaction a expiré,
+    // inutile de tenter de répondre à nouveau (ça refera la même erreur)
     try {
         if (!interaction) return;
+        if (error.code === 10062 || error.message?.includes('Unknown interaction')) return;
 
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp({ embeds: [errorEmbed], flags: 64 });
@@ -40,10 +43,13 @@ async function handleInteractionError(error, interaction, context = 'unknown') {
             await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     } catch (replyError) {
-        log.error(`Impossible de répondre à l'utilisateur: ${replyError.message}`, {
-            context: 'error_handler_reply',
-            originalError: error.message
-        });
+        // Ne pas log si c'est encore une interaction expirée (bruit dans les logs)
+        if (replyError.code !== 10062) {
+            log.error(`Impossible de répondre à l'utilisateur: ${replyError.message}`, {
+                context: 'error_handler_reply',
+                originalError: error.message
+            });
+        }
     }
 }
 
