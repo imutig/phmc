@@ -6,6 +6,38 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js"
 const isProduction = process.env.NODE_ENV === 'production'
 const authSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
 const shouldTrustHost = process.env.AUTH_TRUST_HOST === 'true' || !!process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL === '1'
+const authBaseUrl = process.env.NEXTAUTH_URL || process.env.AUTH_URL
+const secureCookiePrefix = isProduction ? '__Secure-' : ''
+
+function resolveCookieDomain(): string | undefined {
+    const configuredDomain = process.env.AUTH_COOKIE_DOMAIN?.trim()
+    if (configuredDomain) {
+        return configuredDomain
+    }
+
+    if (!isProduction || !authBaseUrl) {
+        return undefined
+    }
+
+    try {
+        const hostname = new URL(authBaseUrl).hostname.toLowerCase()
+        if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+            return undefined
+        }
+        return hostname.startsWith('www.') ? `.${hostname.slice(4)}` : `.${hostname}`
+    } catch {
+        return undefined
+    }
+}
+
+const cookieDomain = resolveCookieDomain()
+const sharedAuthCookieOptions = {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    secure: isProduction,
+    ...(cookieDomain ? { domain: cookieDomain } : {})
+}
 
 // Client Supabase pour le logging (lazy init pour éviter erreur au build)
 let supabaseAdmin: SupabaseClient | null = null
@@ -23,6 +55,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     secret: authSecret,
     trustHost: shouldTrustHost,
     useSecureCookies: isProduction,
+    cookies: {
+        pkceCodeVerifier: {
+            name: `${secureCookiePrefix}authjs.pkce.code_verifier`,
+            options: {
+                ...sharedAuthCookieOptions,
+                maxAge: 60 * 15
+            }
+        },
+        state: {
+            name: `${secureCookiePrefix}authjs.state`,
+            options: {
+                ...sharedAuthCookieOptions,
+                maxAge: 60 * 15
+            }
+        },
+        nonce: {
+            name: `${secureCookiePrefix}authjs.nonce`,
+            options: sharedAuthCookieOptions
+        }
+    },
     providers: [
         Discord({
             clientId: process.env.DISCORD_CLIENT_ID!,
