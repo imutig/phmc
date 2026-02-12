@@ -409,8 +409,10 @@ async function checkAppointmentReminders() {
 async function checkConvocationReminders() {
     try {
         const now = new Date();
-        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-        const oneHourAndOneMinLater = new Date(now.getTime() + 61 * 60 * 1000);
+        const reminderWindowStart = new Date(now.getTime() + 58 * 60 * 1000);
+        const reminderWindowEnd = new Date(now.getTime() + 62 * 60 * 1000);
+
+        log.info(`[ConvocationReminder] Tick ${now.toISOString()} | window=${reminderWindowStart.toISOString()} -> ${reminderWindowEnd.toISOString()}`);
 
         const { data: events, error } = await supabase
             .from('events')
@@ -430,26 +432,40 @@ async function checkConvocationReminders() {
             .is('deleted_at', null)
             .eq('is_published', true);
 
-        if (error || !events || events.length === 0) {
+        if (error) {
+            log.error(`[ConvocationReminder] Erreur query events: ${error.message}`);
             return;
         }
+
+        if (!events || events.length === 0) {
+            log.info('[ConvocationReminder] Aucun événement de convocation trouvé.');
+            return;
+        }
+
+        log.info(`[ConvocationReminder] ${events.length} événement(s) convocation récupéré(s).`);
 
         for (const event of events) {
             const scheduledDate = buildEventDateTime(event.event_date, event.start_time);
             if (!scheduledDate) {
+                log.warn(`[ConvocationReminder] Event ${event.id} ignoré: date invalide (event_date=${event.event_date}, start_time=${event.start_time})`);
                 continue;
             }
 
-            if (scheduledDate < oneHourLater || scheduledDate >= oneHourAndOneMinLater) {
+            if (scheduledDate < reminderWindowStart || scheduledDate >= reminderWindowEnd) {
                 continue;
             }
 
             const participants = event.event_participants || [];
+            if (participants.length === 0) {
+                log.warn(`[ConvocationReminder] Event ${event.id} sans participant - aucun DM envoyé.`);
+            }
+
             for (const participant of participants) {
                 if (!participant?.user_discord_id) continue;
 
                 const reminderKey = `${event.id}:${participant.user_discord_id}`;
                 if (sentConvocationReminders.has(reminderKey)) {
+                    log.info(`[ConvocationReminder] Déjà envoyé ${reminderKey}, skip.`);
                     continue;
                 }
 
@@ -477,7 +493,7 @@ async function checkConvocationReminders() {
                     await user.send({ embeds: [reminderEmbed] });
                     log.info(`Rappel convocation envoyé pour event ${event.id} -> ${participant.user_discord_id}`);
                 } catch (dmError) {
-                    log.warn(`Rappel convocation échoué pour event ${event.id} -> ${participant.user_discord_id}`);
+                    log.warn(`Rappel convocation échoué pour event ${event.id} -> ${participant.user_discord_id}: ${dmError.message}`);
                 }
             }
         }

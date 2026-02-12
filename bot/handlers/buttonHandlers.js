@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const log = require('../utils/logger');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -171,7 +172,7 @@ async function handleCloseChannel(interaction) {
 }
 
 // Handler pour confirmation de convocation
-async function handleConvocationConfirm(interaction, targetUserId, convokerUserId) {
+async function handleConvocationConfirm(interaction, targetUserId, convokerUserId, scheduledTimestamp) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -179,6 +180,8 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
             flags: 64
         });
     }
+
+    log.info(`[Convocation] Confirmation reçue par ${interaction.user.id} | convoker=${convokerUserId || 'unknown'} | ts=${scheduledTimestamp || 'none'}`);
 
     // On utilise deferUpdate pour accuser réception immédiatement
     await interaction.deferUpdate();
@@ -192,11 +195,28 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
         .addFields({ name: '✅ Réponse', value: `<@${interaction.user.id}> a confirmé sa présence.`, inline: false });
 
     const parsedConvocation = parseConvocationFromEmbed(originalEmbed);
+    const scheduledFromButton = parseScheduledTimestamp(scheduledTimestamp);
 
-    if (parsedConvocation) {
+    if (parsedConvocation || scheduledFromButton) {
         try {
-            const eventDateOnly = parsedConvocation.date.toISOString().split('T')[0];
-            const eventDateTime = `${eventDateOnly}T${parsedConvocation.startTime}:00`;
+            const sourceDate = scheduledFromButton || parsedConvocation?.date;
+            if (!sourceDate) {
+                throw new Error('Impossible de déterminer la date de convocation');
+            }
+
+            const startTime = scheduledFromButton
+                ? `${sourceDate.getHours().toString().padStart(2, '0')}:${sourceDate.getMinutes().toString().padStart(2, '0')}`
+                : parsedConvocation.startTime;
+
+            const endTime = (() => {
+                const end = new Date(sourceDate.getTime() + 60 * 60 * 1000);
+                return `${end.getHours().toString().padStart(2, '0')}:${end.getMinutes().toString().padStart(2, '0')}`;
+            })();
+
+            const eventDateOnly = `${sourceDate.getFullYear()}-${(sourceDate.getMonth() + 1).toString().padStart(2, '0')}-${sourceDate.getDate().toString().padStart(2, '0')}`;
+            const eventDateTime = `${eventDateOnly}T${startTime}:00`;
+
+            log.info(`[Convocation] Création événement calendrier | user=${interaction.user.id} | date=${eventDateTime} | convoker=${convokerUserId || 'unknown'}`);
 
             const { data: createdEvent, error: eventError } = await supabase
                 .from('events')
@@ -207,12 +227,12 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
                         ``,
                         `Patient: <@${interaction.user.id}>`,
                         `Convocateur: <@${convokerUserId || 'inconnu'}>`,
-                        `Motif: ${parsedConvocation.motif}`
+                        `Motif: ${parsedConvocation?.motif || 'Non spécifié'}`
                     ].join('\n'),
                     event_date: eventDateTime,
-                    start_time: parsedConvocation.startTime,
-                    end_time: parsedConvocation.endTime,
-                    location: parsedConvocation.lieu,
+                    start_time: startTime,
+                    end_time: endTime,
+                    location: parsedConvocation?.lieu || 'Non précisé',
                     event_type: 'rdv',
                     event_size: 'minor',
                     color: '#059669',
@@ -224,18 +244,30 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
                 .select('id')
                 .single();
 
-            if (!eventError && createdEvent?.id) {
-                await supabase
+            if (eventError || !createdEvent?.id) {
+                log.error(`[Convocation] Échec création événement: ${eventError?.message || 'unknown'}`);
+            } else {
+                log.success(`[Convocation] Événement créé: ${createdEvent.id}`);
+
+                const { error: participantError } = await supabase
                     .from('event_participants')
                     .insert({
                         event_id: createdEvent.id,
                         user_discord_id: interaction.user.id,
                         user_name: interaction.member?.displayName || interaction.user.username
                     });
+
+                if (participantError) {
+                    log.error(`[Convocation] Échec ajout participant event ${createdEvent.id}: ${participantError.message}`);
+                } else {
+                    log.info(`[Convocation] Participant ajouté event ${createdEvent.id} -> ${interaction.user.id}`);
+                }
             }
         } catch (eventCreationError) {
-            console.error('[Convocation] Erreur création événement:', eventCreationError.message);
+            log.error(`[Convocation] Erreur création événement: ${eventCreationError.message}`);
         }
+    } else {
+        log.warn(`[Convocation] Impossible de parser la convocation depuis l'embed pour ${interaction.user.id}`);
     }
 
     await interaction.editReply({
@@ -245,7 +277,7 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
 }
 
 // Handler pour absence à une convocation (ouvre un modal)
-async function handleConvocationAbsent(interaction, targetUserId, convokerUserId) {
+async function handleConvocationAbsent(interaction, targetUserId, convokerUserId, scheduledTimestamp) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -258,7 +290,7 @@ async function handleConvocationAbsent(interaction, targetUserId, convokerUserId
 
     // Créer le modal pour la raison d'absence
     const modal = new ModalBuilder()
-        .setCustomId(`convocation_absence_modal_${interaction.message.id}_${convokerUserId || 'unknown'}`)
+        .setCustomId(`convocation_absence_modal_${interaction.message.id}_${convokerUserId || 'unknown'}_${scheduledTimestamp || 'unknown'}`)
         .setTitle('Signaler une absence');
 
     const raisonInput = new TextInputBuilder()
@@ -283,6 +315,8 @@ async function handleConvocationAbsenceModal(interaction) {
     const customIdParts = interaction.customId.split('_');
     const messageId = customIdParts[3];
     const message = interaction.message;
+
+    log.info(`[Convocation] Absence signalée par ${interaction.user.id} sur message ${messageId}`);
 
     const { EmbedBuilder } = require('discord.js');
 
@@ -355,6 +389,16 @@ function parseConvocationFromEmbed(embed) {
         lieu,
         motif
     };
+}
+
+function parseScheduledTimestamp(value) {
+    if (!value) return null;
+
+    const ts = parseInt(String(value), 10);
+    if (Number.isNaN(ts)) return null;
+
+    const date = new Date(ts);
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
 module.exports = {
