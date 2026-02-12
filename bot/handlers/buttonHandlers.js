@@ -238,8 +238,7 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
                     color: '#059669',
                     is_published: true,
                     participants_all: false,
-                    created_by: convokerUserId || null,
-                    created_by_name: interaction.guild?.members.cache.get(convokerUserId)?.displayName || null
+                    created_by: convokerUserId || null
                 })
                 .select('id')
                 .single();
