@@ -120,11 +120,13 @@ async function handleButtonInteraction(interaction, supabase) {
         // Convocations
         if (customId.startsWith('convocation_confirm_')) {
             const targetUserId = customId.split('_')[2];
-            return await handleConvocationConfirm(interaction, targetUserId);
+            const convokerUserId = customId.split('_')[3];
+            return await handleConvocationConfirm(interaction, targetUserId, convokerUserId);
         }
         if (customId.startsWith('convocation_absent_')) {
             const targetUserId = customId.split('_')[2];
-            return await handleConvocationAbsent(interaction, targetUserId);
+            const convokerUserId = customId.split('_')[3];
+            return await handleConvocationAbsent(interaction, targetUserId, convokerUserId);
         }
 
         // Services - boutons simples

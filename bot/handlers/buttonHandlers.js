@@ -171,7 +171,7 @@ async function handleCloseChannel(interaction) {
 }
 
 // Handler pour confirmation de convocation
-async function handleConvocationConfirm(interaction, targetUserId) {
+async function handleConvocationConfirm(interaction, targetUserId, convokerUserId) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -191,6 +191,53 @@ async function handleConvocationConfirm(interaction, targetUserId) {
         .setColor(0x22C55E) // Vert
         .addFields({ name: '✅ Réponse', value: `<@${interaction.user.id}> a confirmé sa présence.`, inline: false });
 
+    const parsedConvocation = parseConvocationFromEmbed(originalEmbed);
+
+    if (parsedConvocation) {
+        try {
+            const eventDateOnly = parsedConvocation.date.toISOString().split('T')[0];
+            const eventDateTime = `${eventDateOnly}T${parsedConvocation.startTime}:00`;
+
+            const { data: createdEvent, error: eventError } = await supabase
+                .from('events')
+                .insert({
+                    title: `Convocation - ${interaction.user.username}`,
+                    description: [
+                        `Convocation acceptée automatiquement depuis Discord.`,
+                        ``,
+                        `Patient: <@${interaction.user.id}>`,
+                        `Convocateur: <@${convokerUserId || 'inconnu'}>`,
+                        `Motif: ${parsedConvocation.motif}`
+                    ].join('\n'),
+                    event_date: eventDateTime,
+                    start_time: parsedConvocation.startTime,
+                    end_time: parsedConvocation.endTime,
+                    location: parsedConvocation.lieu,
+                    event_type: 'rdv',
+                    event_size: 'minor',
+                    color: '#059669',
+                    is_published: true,
+                    participants_all: false,
+                    created_by: convokerUserId || null,
+                    created_by_name: interaction.guild?.members.cache.get(convokerUserId)?.displayName || null
+                })
+                .select('id')
+                .single();
+
+            if (!eventError && createdEvent?.id) {
+                await supabase
+                    .from('event_participants')
+                    .insert({
+                        event_id: createdEvent.id,
+                        user_discord_id: interaction.user.id,
+                        user_name: interaction.member?.displayName || interaction.user.username
+                    });
+            }
+        } catch (eventCreationError) {
+            console.error('[Convocation] Erreur création événement:', eventCreationError.message);
+        }
+    }
+
     await interaction.editReply({
         embeds: [updatedEmbed],
         components: [] // Retirer les boutons
@@ -198,7 +245,7 @@ async function handleConvocationConfirm(interaction, targetUserId) {
 }
 
 // Handler pour absence à une convocation (ouvre un modal)
-async function handleConvocationAbsent(interaction, targetUserId) {
+async function handleConvocationAbsent(interaction, targetUserId, convokerUserId) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -211,7 +258,7 @@ async function handleConvocationAbsent(interaction, targetUserId) {
 
     // Créer le modal pour la raison d'absence
     const modal = new ModalBuilder()
-        .setCustomId(`convocation_absence_modal_${interaction.message.id}`)
+        .setCustomId(`convocation_absence_modal_${interaction.message.id}_${convokerUserId || 'unknown'}`)
         .setTitle('Signaler une absence');
 
     const raisonInput = new TextInputBuilder()
@@ -233,7 +280,8 @@ async function handleConvocationAbsenceModal(interaction) {
     const raison = interaction.fields.getTextInputValue('raison');
 
     // Récupérer le message original
-    const messageId = interaction.customId.replace('convocation_absence_modal_', '');
+    const customIdParts = interaction.customId.split('_');
+    const messageId = customIdParts[3];
     const message = interaction.message;
 
     const { EmbedBuilder } = require('discord.js');
@@ -264,6 +312,49 @@ async function handleConvocationAbsenceModal(interaction) {
         // Le message original a pu être supprimé ou inaccessible
         console.error('[ConvocationModal] Could not update original message:', e.message);
     }
+}
+
+function parseConvocationFromEmbed(embed) {
+    if (!embed || !embed.fields || embed.fields.length === 0) {
+        return null;
+    }
+
+    const fieldByName = (name) => embed.fields.find(field => field.name === name)?.value || '';
+    const dateValue = fieldByName('📅 Date');
+    const timeValue = fieldByName('🕐 Heure');
+    const lieu = fieldByName('📍 Lieu') || 'Non précisé';
+    const motif = fieldByName('📋 Motif') || 'Non spécifié';
+
+    const dateMatch = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dateMatch) {
+        return null;
+    }
+
+    const timeMatch = timeValue.match(/^(\d{1,2})[:hH](\d{2})$/);
+    if (!timeMatch) {
+        return null;
+    }
+
+    const day = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10) - 1;
+    const year = parseInt(dateMatch[3], 10);
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
+
+    const date = new Date(year, month, day, hours, minutes, 0, 0);
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    const endDate = new Date(date.getTime() + 60 * 60 * 1000);
+
+    return {
+        date,
+        startTime: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`,
+        endTime: `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`,
+        lieu,
+        motif
+    };
 }
 
 module.exports = {

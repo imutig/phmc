@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Users, Search, RefreshCw, Filter, ChevronDown, Check, UserPlus, Pencil, X, Save } from "lucide-react"
+import { Users, Search, RefreshCw, Filter, ChevronDown, Check, UserPlus, Pencil, X, Save, Trash2 } from "lucide-react"
 import { useToast } from "@/contexts/ToastContext"
 import Image from "next/image"
 
@@ -54,11 +54,13 @@ function EmployeeAvatar({ avatarUrl, displayName }: { avatarUrl: string | null; 
 function EmployeeRow({
     employee,
     onSync,
+    onDelete,
     onUpdateIGN,
     syncingId
 }: {
     employee: Employee
     onSync: (discordId: string) => void
+    onDelete: (discordId: string, displayName: string) => void
     onUpdateIGN: (discordId: string, ign: string) => Promise<void>
     syncingId: string | null
 }) {
@@ -155,14 +157,24 @@ function EmployeeRow({
 
             {/* Actions */}
             <td className="px-4 py-3 text-right">
-                <button
-                    onClick={() => onSync(employee.discordId)}
-                    disabled={syncingId === employee.discordId}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
-                >
-                    <RefreshCw className={`w-3.5 h-3.5 ${syncingId === employee.discordId ? 'animate-spin' : ''}`} />
-                    {syncingId === employee.discordId ? 'Synchro...' : 'Sync'}
-                </button>
+                <div className="inline-flex items-center gap-2">
+                    <button
+                        onClick={() => onSync(employee.discordId)}
+                        disabled={syncingId === employee.discordId}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncingId === employee.discordId ? 'animate-spin' : ''}`} />
+                        {syncingId === employee.discordId ? 'Synchro...' : 'Sync'}
+                    </button>
+                    <button
+                        onClick={() => onDelete(employee.discordId, employee.displayName)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-500/10 text-gray-300 hover:bg-red-500/20 hover:text-red-300 transition-colors text-sm"
+                        title="Supprimer cet employé"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Supprimer
+                    </button>
+                </div>
             </td>
         </tr>
     )
@@ -271,6 +283,26 @@ export default function EffectifPage() {
             }
         } catch (e) {
             console.error('Erreur update IGN:', e)
+            toast.error("Erreur de connexion")
+        }
+    }
+
+    async function deleteEmployee(discordId: string, displayName: string) {
+        const confirmed = window.confirm(`Supprimer ${displayName} de l'effectif ?`)
+        if (!confirmed) return
+
+        try {
+            const res = await fetch(`/api/admin/employees/${discordId}`, { method: 'DELETE' })
+
+            if (res.ok) {
+                setEmployees(prev => prev.filter(emp => emp.discordId !== discordId))
+                toast.success(`${displayName} supprimé`)
+            } else {
+                const error = await res.json()
+                toast.error(error.error || "Erreur lors de la suppression")
+            }
+        } catch (e) {
+            console.error('Erreur suppression employé:', e)
             toast.error("Erreur de connexion")
         }
     }
@@ -443,6 +475,7 @@ export default function EffectifPage() {
                                         key={employee.id}
                                         employee={employee}
                                         onSync={syncEmployee}
+                                        onDelete={deleteEmployee}
                                         onUpdateIGN={updateIGN}
                                         syncingId={syncingId}
                                     />
@@ -483,6 +516,7 @@ export default function EffectifPage() {
                                         key={employee.id}
                                         employee={employee}
                                         onSync={syncEmployee}
+                                        onDelete={deleteEmployee}
                                         onUpdateIGN={updateIGN}
                                         syncingId={syncingId}
                                     />

@@ -293,6 +293,7 @@ function startApiServer(clientInstance) {
 
 // Set pour éviter d'envoyer plusieurs rappels pour le même RDV
 const sentReminders = new Set();
+const sentConvocationReminders = new Set();
 
 // Vérifier les RDV à rappeler (5 min avant)
 async function checkAppointmentReminders() {
@@ -405,12 +406,118 @@ async function checkAppointmentReminders() {
     }
 }
 
+async function checkConvocationReminders() {
+    try {
+        const now = new Date();
+        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        const oneHourAndOneMinLater = new Date(now.getTime() + 61 * 60 * 1000);
+
+        const { data: events, error } = await supabase
+            .from('events')
+            .select(`
+                id,
+                title,
+                location,
+                event_date,
+                start_time,
+                event_participants (
+                    user_discord_id,
+                    user_name
+                )
+            `)
+            .eq('event_type', 'rdv')
+            .ilike('title', 'Convocation - %')
+            .is('deleted_at', null)
+            .eq('is_published', true);
+
+        if (error || !events || events.length === 0) {
+            return;
+        }
+
+        for (const event of events) {
+            const scheduledDate = buildEventDateTime(event.event_date, event.start_time);
+            if (!scheduledDate) {
+                continue;
+            }
+
+            if (scheduledDate < oneHourLater || scheduledDate >= oneHourAndOneMinLater) {
+                continue;
+            }
+
+            const participants = event.event_participants || [];
+            for (const participant of participants) {
+                if (!participant?.user_discord_id) continue;
+
+                const reminderKey = `${event.id}:${participant.user_discord_id}`;
+                if (sentConvocationReminders.has(reminderKey)) {
+                    continue;
+                }
+
+                sentConvocationReminders.add(reminderKey);
+
+                try {
+                    const user = await client.users.fetch(participant.user_discord_id);
+                    const { EmbedBuilder } = require('discord.js');
+                    const reminderEmbed = new EmbedBuilder()
+                        .setColor(0xF59E0B)
+                        .setTitle('⏰ Rappel: Convocation dans 1 heure')
+                        .setDescription([
+                            `Bonjour,`,
+                            ``,
+                            `Votre convocation est prévue dans **1 heure**.`,
+                            ``,
+                            `📅 **Date:** ${scheduledDate.toLocaleDateString('fr-FR')}`,
+                            `🕐 **Heure:** ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+                            `📍 **Lieu:** ${event.location || 'Non précisé'}`,
+                            ``,
+                            `Merci d'être présent(e) à l'heure.`
+                        ].join('\n'))
+                        .setTimestamp();
+
+                    await user.send({ embeds: [reminderEmbed] });
+                    log.info(`Rappel convocation envoyé pour event ${event.id} -> ${participant.user_discord_id}`);
+                } catch (dmError) {
+                    log.warn(`Rappel convocation échoué pour event ${event.id} -> ${participant.user_discord_id}`);
+                }
+            }
+        }
+    } catch (error) {
+        log.error(`Erreur rappels convocations: ${error.message}`);
+    }
+}
+
+function buildEventDateTime(eventDate, startTime) {
+    if (!eventDate || !startTime) {
+        return null;
+    }
+
+    const datePart = String(eventDate).split('T')[0];
+    const timePart = String(startTime).slice(0, 5);
+    const [yearStr, monthStr, dayStr] = datePart.split('-');
+    const [hourStr, minuteStr] = timePart.split(':');
+
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10) - 1;
+    const day = parseInt(dayStr, 10);
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+
+    if ([year, month, day, hour, minute].some(Number.isNaN)) {
+        return null;
+    }
+
+    const date = new Date(year, month, day, hour, minute, 0, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
 // Démarrer les vérifications de rappel toutes les minutes
 function startReminderChecker() {
     log.info('Système de rappels RDV activé (vérification chaque minute)');
     setInterval(checkAppointmentReminders, 60 * 1000);
+    setInterval(checkConvocationReminders, 60 * 1000);
     // Vérifier immédiatement au démarrage
     checkAppointmentReminders();
+    checkConvocationReminders();
 }
 
 function checkConfiguration() {
