@@ -43,6 +43,11 @@ module.exports = {
             option.setName('motif')
                 .setDescription('Motif de la convocation (optionnel)')
                 .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName('duree')
+                .setDescription('Durée estimée (optionnel, ex: 1h, 1h30, 90min)')
+                .setRequired(false)
         ),
 
     async execute(interaction) {
@@ -62,6 +67,7 @@ module.exports = {
         const heureInput = interaction.options.getString('heure');
         const lieu = interaction.options.getString('lieu');
         const motif = interaction.options.getString('motif') || 'Non spécifié';
+        const dureeInput = interaction.options.getString('duree');
         const convocateur = interaction.member;
         const typeLabel = convocationType === 'patient' ? 'Patient' : 'Membre du personnel';
 
@@ -83,6 +89,17 @@ module.exports = {
         const normalizedDate = `${parsedDateTime.day.toString().padStart(2, '0')}/${parsedDateTime.month.toString().padStart(2, '0')}/${parsedDateTime.year}`;
         const normalizedTime = `${parsedDateTime.hours.toString().padStart(2, '0')}:${parsedDateTime.minutes.toString().padStart(2, '0')}`;
         const scheduledTimestamp = parsedDateTime.date.getTime();
+        const durationMinutes = parseDurationMinutes(dureeInput);
+
+        if (dureeInput && durationMinutes === null) {
+            return interaction.reply({
+                content: '❌ Durée invalide. Exemples valides: `1h`, `1h30`, `90min`, `45`.',
+                flags: 64
+            });
+        }
+
+        const resolvedDurationMinutes = durationMinutes ?? 60;
+        const durationLabel = formatDurationLabel(resolvedDurationMinutes);
 
         await interaction.deferReply();
 
@@ -95,6 +112,7 @@ module.exports = {
                 { name: '👤 Type', value: typeLabel, inline: true },
                 { name: '📅 Date', value: normalizedDate, inline: true },
                 { name: '🕐 Heure', value: normalizedTime, inline: true },
+                { name: '⏱️ Durée estimée', value: durationLabel, inline: true },
                 { name: '📍 Lieu', value: lieu, inline: true },
                 { name: '📋 Motif', value: motif, inline: false },
                 { name: '\u200B', value: 'Merci de confirmer votre disponibilité. En cas d\'empêchement, prévenez simplement le personnel médical afin de reprogrammer le rendez-vous.', inline: false }
@@ -106,11 +124,11 @@ module.exports = {
         const buttons = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`convocation_confirm_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}`)
+                    .setCustomId(`convocation_confirm_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}`)
                     .setLabel('✅ Je confirme ma présence')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`convocation_absent_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}`)
+                    .setCustomId(`convocation_absent_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}`)
                     .setLabel('❌ Signaler une absence')
                     .setStyle(ButtonStyle.Danger)
             );
@@ -198,4 +216,45 @@ function parseConvocationDateTime(dateInput, timeInput) {
     }
 
     return { date, day, month, year, hours, minutes };
+}
+
+function parseDurationMinutes(rawValue) {
+    if (!rawValue) return null;
+
+    const input = String(rawValue).trim().toLowerCase().replace(/\s+/g, '');
+
+    let match = input.match(/^(\d{1,2})h(\d{1,2})$/);
+    if (match) {
+        const hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        if (minutes >= 60) return null;
+        return normalizeDuration(hours * 60 + minutes);
+    }
+
+    match = input.match(/^(\d{1,2})h$/);
+    if (match) {
+        return normalizeDuration(parseInt(match[1], 10) * 60);
+    }
+
+    match = input.match(/^(\d{1,3})(min|m)?$/);
+    if (match) {
+        return normalizeDuration(parseInt(match[1], 10));
+    }
+
+    return null;
+}
+
+function normalizeDuration(minutes) {
+    if (Number.isNaN(minutes)) return null;
+    if (minutes < 10 || minutes > 8 * 60) return null;
+    return minutes;
+}
+
+function formatDurationLabel(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hours === 0) return `${mins} min`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h${mins.toString().padStart(2, '0')}`;
 }

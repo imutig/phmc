@@ -419,6 +419,7 @@ async function checkConvocationReminders() {
             .select(`
                 id,
                 title,
+                description,
                 location,
                 event_date,
                 start_time,
@@ -428,7 +429,7 @@ async function checkConvocationReminders() {
                 )
             `)
             .eq('event_type', 'rdv')
-            .ilike('title', 'Convocation - %')
+            .ilike('description', 'Convocation acceptée via Ticket%')
             .is('deleted_at', null)
             .eq('is_published', true);
 
@@ -451,7 +452,10 @@ async function checkConvocationReminders() {
                 continue;
             }
 
+            const diffMinutes = Math.round((scheduledDate.getTime() - now.getTime()) / (60 * 1000));
+
             if (scheduledDate < reminderWindowStart || scheduledDate >= reminderWindowEnd) {
+                log.info(`[ConvocationReminder] Event ${event.id} hors fenêtre (dans ~${diffMinutes} min).`);
                 continue;
             }
 
@@ -476,11 +480,11 @@ async function checkConvocationReminders() {
                     const { EmbedBuilder } = require('discord.js');
                     const reminderEmbed = new EmbedBuilder()
                         .setColor(0xF59E0B)
-                        .setTitle('⏰ Rappel: Convocation dans 1 heure')
+                        .setTitle('⏰ Rappel: Rendez-vous médical dans 1 heure')
                         .setDescription([
                             `Bonjour,`,
                             ``,
-                            `Votre convocation est prévue dans **1 heure**.`,
+                            `Votre rendez-vous médical est prévu dans **1 heure**.`,
                             ``,
                             `📅 **Date:** ${scheduledDate.toLocaleDateString('fr-FR')}`,
                             `🕐 **Heure:** ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
@@ -503,7 +507,16 @@ async function checkConvocationReminders() {
 }
 
 function buildEventDateTime(eventDate, startTime) {
-    if (!eventDate || !startTime) {
+    if (!eventDate) {
+        return null;
+    }
+
+    const fromEventDate = new Date(eventDate);
+    if (!Number.isNaN(fromEventDate.getTime())) {
+        return fromEventDate;
+    }
+
+    if (!startTime) {
         return null;
     }
 
