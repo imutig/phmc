@@ -3,6 +3,10 @@ import Discord from "next-auth/providers/discord"
 import { checkDiscordRoles, RoleType } from "@/lib/auth-utils"
 import { createClient, SupabaseClient } from "@supabase/supabase-js"
 
+const isProduction = process.env.NODE_ENV === 'production'
+const authSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+const shouldTrustHost = process.env.AUTH_TRUST_HOST === 'true' || !!process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL === '1'
+
 // Client Supabase pour le logging (lazy init pour éviter erreur au build)
 let supabaseAdmin: SupabaseClient | null = null
 function getSupabaseAdmin(): SupabaseClient | null {
@@ -16,6 +20,9 @@ function getSupabaseAdmin(): SupabaseClient | null {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    secret: authSecret,
+    trustHost: shouldTrustHost,
+    useSecureCookies: isProduction,
     providers: [
         Discord({
             clientId: process.env.DISCORD_CLIENT_ID!,
@@ -96,5 +103,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     pages: {
         signIn: "/auth/signin",
+    },
+    logger: {
+        error(error) {
+            console.error('[Auth][error]', error)
+        },
+        warn(code) {
+            console.warn('[Auth][warn]', code)
+        },
+        debug(message, metadata) {
+            if (!isProduction) {
+                console.debug('[Auth][debug]', message, metadata ?? '')
+            }
+        }
     },
 })
