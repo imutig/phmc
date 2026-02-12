@@ -412,8 +412,6 @@ async function checkConvocationReminders() {
         const reminderWindowStart = new Date(now.getTime() + 58 * 60 * 1000);
         const reminderWindowEnd = new Date(now.getTime() + 62 * 60 * 1000);
 
-        log.info(`[ConvocationReminder] Tick ${now.toISOString()} | window=${reminderWindowStart.toISOString()} -> ${reminderWindowEnd.toISOString()}`);
-
         const { data: events, error } = await supabase
             .from('events')
             .select(`
@@ -429,7 +427,7 @@ async function checkConvocationReminders() {
                 )
             `)
             .eq('event_type', 'rdv')
-            .ilike('description', 'Convocation acceptée via Ticket%')
+            .ilike('description', '%via Ticket%')
             .is('deleted_at', null)
             .eq('is_published', true);
 
@@ -439,23 +437,22 @@ async function checkConvocationReminders() {
         }
 
         if (!events || events.length === 0) {
-            log.info('[ConvocationReminder] Aucun événement de convocation trouvé.');
             return;
         }
 
-        log.info(`[ConvocationReminder] ${events.length} événement(s) convocation récupéré(s).`);
-
         for (const event of events) {
+            const convocationType = parseConvocationTypeFromDescription(event.description);
+            if (!convocationType) {
+                continue;
+            }
+
             const scheduledDate = buildEventDateTime(event.event_date, event.start_time);
             if (!scheduledDate) {
                 log.warn(`[ConvocationReminder] Event ${event.id} ignoré: date invalide (event_date=${event.event_date}, start_time=${event.start_time})`);
                 continue;
             }
 
-            const diffMinutes = Math.round((scheduledDate.getTime() - now.getTime()) / (60 * 1000));
-
             if (scheduledDate < reminderWindowStart || scheduledDate >= reminderWindowEnd) {
-                log.info(`[ConvocationReminder] Event ${event.id} hors fenêtre (dans ~${diffMinutes} min).`);
                 continue;
             }
 
@@ -469,7 +466,6 @@ async function checkConvocationReminders() {
 
                 const reminderKey = `${event.id}:${participant.user_discord_id}`;
                 if (sentConvocationReminders.has(reminderKey)) {
-                    log.info(`[ConvocationReminder] Déjà envoyé ${reminderKey}, skip.`);
                     continue;
                 }
 
@@ -480,11 +476,15 @@ async function checkConvocationReminders() {
                     const { EmbedBuilder } = require('discord.js');
                     const reminderEmbed = new EmbedBuilder()
                         .setColor(0xF59E0B)
-                        .setTitle('⏰ Rappel: Rendez-vous médical dans 1 heure')
+                        .setTitle(convocationType === 'staff'
+                            ? '⏰ Rappel: Convocation interne dans 1 heure'
+                            : '⏰ Rappel: Rendez-vous médical dans 1 heure')
                         .setDescription([
                             `Bonjour,`,
                             ``,
-                            `Votre rendez-vous médical est prévu dans **1 heure**.`,
+                            convocationType === 'staff'
+                                ? `Votre convocation interne est prévue dans **1 heure**.`
+                                : `Votre rendez-vous médical est prévu dans **1 heure**.`,
                             ``,
                             `📅 **Date:** ${scheduledDate.toLocaleDateString('fr-FR')}`,
                             `🕐 **Heure:** ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
@@ -537,6 +537,23 @@ function buildEventDateTime(eventDate, startTime) {
 
     const date = new Date(year, month, day, hour, minute, 0, 0);
     return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseConvocationTypeFromDescription(description) {
+    if (!description || typeof description !== 'string') {
+        return null;
+    }
+
+    const typeMatch = description.match(/Type:\s*(patient|staff)/i);
+    if (typeMatch) {
+        return typeMatch[1].toLowerCase();
+    }
+
+    if (/via Ticket/i.test(description)) {
+        return 'patient';
+    }
+
+    return null;
 }
 
 // Démarrer les vérifications de rappel toutes les minutes

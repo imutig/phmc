@@ -100,14 +100,15 @@ module.exports = {
 
         const resolvedDurationMinutes = durationMinutes ?? 60;
         const durationLabel = formatDurationLabel(resolvedDurationMinutes);
+        const convocationContent = getConvocationContent(convocationType);
 
         await interaction.deferReply();
 
         // Créer l'embed de convocation
         const embed = new EmbedBuilder()
             .setColor(0xDC2626) // Rouge
-            .setTitle('📅 RENDEZ-VOUS')
-            .setDescription(`<@${targetUser.id}>, le personnel médical vous propose un rendez-vous.`)
+            .setTitle(convocationContent.title)
+            .setDescription(convocationContent.description.replace('{target}', `<@${targetUser.id}>`))
             .addFields(
                 { name: '👤 Type', value: typeLabel, inline: true },
                 { name: '📅 Date', value: normalizedDate, inline: true },
@@ -115,7 +116,7 @@ module.exports = {
                 { name: '⏱️ Durée estimée', value: durationLabel, inline: true },
                 { name: '📍 Lieu', value: lieu, inline: true },
                 { name: '📋 Motif', value: motif, inline: false },
-                { name: '\u200B', value: 'Merci de confirmer votre disponibilité. En cas d\'empêchement, prévenez simplement le personnel médical afin de reprogrammer le rendez-vous.', inline: false }
+                { name: '\u200B', value: convocationContent.footerText, inline: false }
             )
             .setFooter({ text: `Convocation émise par ${convocateur.nickname || convocateur.user.username}` })
             .setTimestamp();
@@ -124,11 +125,11 @@ module.exports = {
         const buttons = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`convocation_confirm_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}`)
+                    .setCustomId(`convocation_confirm_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}_${convocationType}`)
                     .setLabel('✅ Je confirme ma présence')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`convocation_absent_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}`)
+                    .setCustomId(`convocation_absent_${targetUser.id}_${interaction.user.id}_${scheduledTimestamp}_${resolvedDurationMinutes}_${convocationType}`)
                     .setLabel('❌ Signaler une absence')
                     .setStyle(ButtonStyle.Danger)
             );
@@ -257,4 +258,20 @@ function formatDurationLabel(minutes) {
     if (hours === 0) return `${mins} min`;
     if (mins === 0) return `${hours}h`;
     return `${hours}h${mins.toString().padStart(2, '0')}`;
+}
+
+function getConvocationContent(type) {
+    if (type === 'staff') {
+        return {
+            title: '📌 CONVOCATION INTERNE',
+            description: '{target}, vous êtes convoqué(e) pour un rendez-vous interne avec le personnel médical.',
+            footerText: 'Merci de confirmer votre disponibilité. En cas d\'empêchement, prévenez rapidement afin de reprogrammer ce rendez-vous interne.'
+        };
+    }
+
+    return {
+        title: '📅 RENDEZ-VOUS MÉDICAL',
+        description: '{target}, le personnel médical vous propose un rendez-vous médical.',
+        footerText: 'Merci de confirmer votre disponibilité. En cas d\'empêchement, prévenez simplement le personnel médical afin de reprogrammer le rendez-vous.'
+    };
 }

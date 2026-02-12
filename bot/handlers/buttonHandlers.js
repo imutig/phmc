@@ -172,7 +172,7 @@ async function handleCloseChannel(interaction) {
 }
 
 // Handler pour confirmation de convocation
-async function handleConvocationConfirm(interaction, targetUserId, convokerUserId, scheduledTimestamp, durationMinutesRaw) {
+async function handleConvocationConfirm(interaction, targetUserId, convokerUserId, scheduledTimestamp, durationMinutesRaw, convocationTypeRaw) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -197,6 +197,7 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
     const parsedConvocation = parseConvocationFromEmbed(originalEmbed);
     const scheduledFromButton = parseScheduledTimestamp(scheduledTimestamp);
     const resolvedDurationMinutes = parseDurationFromCustomId(durationMinutesRaw);
+    const convocationType = normalizeConvocationType(convocationTypeRaw);
     const patientDisplayName = interaction.member?.displayName || interaction.user.displayName || interaction.user.username;
     const doctorDisplayName = await resolveMemberDisplayName(interaction, convokerUserId);
 
@@ -224,12 +225,17 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
             const { data: createdEvent, error: eventError } = await supabase
                 .from('events')
                 .insert({
-                    title: patientDisplayName,
+                    title: convocationType === 'staff'
+                        ? `Convocation interne (${patientDisplayName})`
+                        : `RDV Médical (${patientDisplayName})`,
                     description: [
-                        `Convocation acceptée via Ticket.`,
+                        convocationType === 'staff'
+                            ? `Convocation interne acceptée via Ticket.`
+                            : `Rendez-vous médical accepté via Ticket.`,
                         ``,
                         `Patient: ${patientDisplayName}.`,
-                        `Médecin: ${doctorDisplayName}.`
+                        `Médecin: ${doctorDisplayName}.`,
+                        `Type: ${convocationType}`
                     ].join('\n'),
                     event_date: eventDateTime,
                     start_time: startTime,
@@ -260,8 +266,6 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
 
                 if (participantError) {
                     log.error(`[Convocation] Échec ajout participant event ${createdEvent.id}: ${participantError.message}`);
-                } else {
-                    log.info(`[Convocation] Participant ajouté event ${createdEvent.id} -> ${interaction.user.id}`);
                 }
             }
         } catch (eventCreationError) {
@@ -278,7 +282,7 @@ async function handleConvocationConfirm(interaction, targetUserId, convokerUserI
 }
 
 // Handler pour absence à une convocation (ouvre un modal)
-async function handleConvocationAbsent(interaction, targetUserId, convokerUserId, scheduledTimestamp, durationMinutesRaw) {
+async function handleConvocationAbsent(interaction, targetUserId, convokerUserId, scheduledTimestamp, durationMinutesRaw, convocationTypeRaw) {
     // Vérifier que c'est bien la personne convoquée
     if (interaction.user.id !== targetUserId) {
         return interaction.reply({
@@ -291,7 +295,7 @@ async function handleConvocationAbsent(interaction, targetUserId, convokerUserId
 
     // Créer le modal pour la raison d'absence
     const modal = new ModalBuilder()
-        .setCustomId(`convocation_absence_modal_${interaction.message.id}_${convokerUserId || 'unknown'}_${scheduledTimestamp || 'unknown'}_${parseDurationFromCustomId(durationMinutesRaw)}`)
+        .setCustomId(`convocation_absence_modal_${interaction.message.id}_${convokerUserId || 'unknown'}_${scheduledTimestamp || 'unknown'}_${parseDurationFromCustomId(durationMinutesRaw)}_${normalizeConvocationType(convocationTypeRaw)}`)
         .setTitle('Signaler une absence');
 
     const raisonInput = new TextInputBuilder()
@@ -427,6 +431,10 @@ async function resolveMemberDisplayName(interaction, userId) {
     }
 
     return 'Personnel médical';
+}
+
+function normalizeConvocationType(type) {
+    return type === 'staff' ? 'staff' : 'patient';
 }
 
 module.exports = {
