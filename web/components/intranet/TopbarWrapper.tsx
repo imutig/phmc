@@ -5,6 +5,7 @@ import { Topbar } from "./Topbar"
 
 interface TopbarWrapperProps {
     userRoles: string[]
+    hasDefconBanner?: boolean
     onMenuClick?: () => void
 }
 
@@ -15,7 +16,7 @@ interface UserProfile {
     gradeName: string | null
 }
 
-export function TopbarWrapper({ userRoles, onMenuClick }: TopbarWrapperProps) {
+export function TopbarWrapper({ userRoles, hasDefconBanner = false, onMenuClick }: TopbarWrapperProps) {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
     const [discordId, setDiscordId] = useState<string>("")
 
@@ -65,6 +66,7 @@ export function TopbarWrapper({ userRoles, onMenuClick }: TopbarWrapperProps) {
             userName={userProfile.displayName}
             gradeName={userProfile.gradeName || gradeFromRoles()}
             avatarUrl={userProfile.avatarUrl}
+            hasDefconBanner={hasDefconBanner}
             onMenuClick={onMenuClick}
         />
     )

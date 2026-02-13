@@ -9,10 +9,11 @@ interface TopbarProps {
     userName: string
     gradeName: string
     avatarUrl?: string | null
+    hasDefconBanner?: boolean
     onMenuClick?: () => void
 }
 
-export function Topbar({ userDiscordId, userName, gradeName, avatarUrl, onMenuClick }: TopbarProps) {
+export function Topbar({ userDiscordId, userName, gradeName, avatarUrl, hasDefconBanner = false, onMenuClick }: TopbarProps) {
     // Ouvrir la recherche globale en simulant Cmd+K
     const openSearch = () => {
         document.dispatchEvent(new KeyboardEvent('keydown', {
@@ -24,7 +25,7 @@ export function Topbar({ userDiscordId, userName, gradeName, avatarUrl, onMenuCl
     }
 
     return (
-        <header className="fixed top-0 right-0 left-0 md:left-[280px] h-16 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#2a2a2a]">
+        <header className={`fixed right-0 left-0 md:left-[280px] h-16 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#2a2a2a] ${hasDefconBanner ? 'top-10' : 'top-0'}`}>
             <div className="h-full px-4 md:px-6 flex items-center justify-between gap-4">
                 {/* Mobile menu button */}
                 <button

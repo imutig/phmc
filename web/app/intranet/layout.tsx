@@ -7,6 +7,8 @@ import { EMS_GRADES } from "@/lib/auth-utils"
 import { SnowEffect } from "@/components/ui/SnowEffect"
 import { GlobalSearch } from "@/components/intranet/GlobalSearch"
 import { DynamicLayout } from "@/components/intranet/DynamicLayout"
+import { DefconBanner } from "@/components/intranet/DefconBanner"
+import { createClient } from "@/lib/supabase/server"
 
 // Grades EMS valides pour accéder à l'intranet
 const VALID_INTRANET_ROLES = [...EMS_GRADES, 'recruiter']
@@ -37,18 +39,43 @@ export default async function IntranetLayout({
     const { getUserPermissions } = await import("@/lib/auth-utils")
     const userPermissions = await getUserPermissions(userRoles as any[])
 
+    const supabase = await createClient()
+    const { data: defconConfig } = await supabase
+        .from('config')
+        .select('value')
+        .eq('key', 'defcon_level')
+        .single()
+
+    const defconRaw = typeof defconConfig?.value === 'string'
+        ? defconConfig.value
+        : (defconConfig?.value ? String(defconConfig.value) : 'vert')
+
+    const defconLevel = normalizeDefconLevel(defconRaw)
+    const showDefconBanner = defconLevel === 'orange' || defconLevel === 'rouge' || defconLevel === 'noir'
+
     return (
         <div className="min-h-screen bg-[#0f1110] text-gray-200">
             <IntranetClientWrapper userData={{ roles: userRoles }} userPermissions={userPermissions}>
                 {/* <SnowEffect /> */}
                 <GlobalSearch />
                 <Sidebar userRoles={userRoles} />
-                <TopbarWrapper userRoles={userRoles} />
+                {showDefconBanner && <DefconBanner level={defconLevel} />}
+                <TopbarWrapper userRoles={userRoles} hasDefconBanner={showDefconBanner} />
 
-                <DynamicLayout>
+                <DynamicLayout hasDefconBanner={showDefconBanner}>
                     {children}
                 </DynamicLayout>
             </IntranetClientWrapper>
         </div>
     )
+}
+
+function normalizeDefconLevel(value: string): 'vert' | 'orange' | 'rouge' | 'noir' {
+    const normalized = value.toLowerCase().replace(/^"|"$/g, '').trim()
+
+    if (normalized === 'orange' || normalized === 'rouge' || normalized === 'noir') {
+        return normalized
+    }
+
+    return 'vert'
 }
