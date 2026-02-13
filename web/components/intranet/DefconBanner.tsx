@@ -25,18 +25,27 @@ const DEFCON_CONTENT: Record<DefconBannerProps['level'], { title: string; messag
 }
 
 export function DefconBanner({ level }: DefconBannerProps) {
-    const storageKey = useMemo(() => `defcon_banner_hidden_${level}`, [level])
+    const hiddenKey = useMemo(() => 'defcon_banner_hidden', [])
+    const lastLevelKey = useMemo(() => 'defcon_banner_last_level', [])
     const [hidden, setHidden] = useState(false)
     const content = DEFCON_CONTENT[level]
 
     useEffect(() => {
         try {
-            const saved = window.localStorage.getItem(storageKey)
-            setHidden(saved === '1')
+            const lastLevel = window.localStorage.getItem(lastLevelKey)
+            const savedHidden = window.localStorage.getItem(hiddenKey) === '1'
+
+            if (lastLevel !== level) {
+                setHidden(false)
+                window.localStorage.setItem(lastLevelKey, level)
+                window.localStorage.removeItem(hiddenKey)
+            } else {
+                setHidden(savedHidden)
+            }
         } catch {
             setHidden(false)
         }
-    }, [storageKey])
+    }, [hiddenKey, lastLevelKey, level])
 
     useEffect(() => {
         const offset = hidden ? '0px' : '40px'
@@ -50,31 +59,14 @@ export function DefconBanner({ level }: DefconBannerProps) {
     const hideBanner = () => {
         setHidden(true)
         try {
-            window.localStorage.setItem(storageKey, '1')
-        } catch {
-        }
-    }
-
-    const showBanner = () => {
-        setHidden(false)
-        try {
-            window.localStorage.removeItem(storageKey)
+            window.localStorage.setItem(hiddenKey, '1')
+            window.localStorage.setItem(lastLevelKey, level)
         } catch {
         }
     }
 
     if (hidden) {
-        return (
-            <button
-                onClick={showBanner}
-                className={`fixed top-0 right-0 left-0 md:left-[280px] z-40 h-3 border-b backdrop-blur-md ${content.className} hover:opacity-100 opacity-90 transition-opacity`}
-                title={`Afficher ${content.title}`}
-            >
-                <span className="text-[9px] uppercase tracking-wider font-bold opacity-90">
-                    Afficher {content.title}
-                </span>
-            </button>
-        )
+        return null
     }
 
     const tickerText = `${content.message}`
@@ -98,10 +90,10 @@ export function DefconBanner({ level }: DefconBannerProps) {
 
                 <button
                     onClick={hideBanner}
-                    className="absolute left-0 right-0 bottom-0 h-1.5 bg-white/10 hover:bg-white/25 transition-colors"
-                    title="Masquer le bandeau"
-                    aria-label="Masquer le bandeau DEFCON"
-                />
+                    className="shrink-0 text-[10px] md:text-xs uppercase tracking-wider font-semibold px-2 py-1 rounded border border-white/20 hover:bg-white/10 transition-colors"
+                >
+                    Masquer
+                </button>
             </div>
         </div>
     )
