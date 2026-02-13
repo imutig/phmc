@@ -25,7 +25,7 @@ export function Topbar({ userDiscordId, userName, gradeName, avatarUrl, hasDefco
     }
 
     return (
-        <header className={`fixed right-0 left-0 md:left-[280px] h-16 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#2a2a2a] ${hasDefconBanner ? 'top-10' : 'top-0'}`}>
+        <header className="fixed right-0 left-0 md:left-[280px] h-16 z-30 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#2a2a2a] top-[var(--defcon-banner-offset,0px)]">
             <div className="h-full px-4 md:px-6 flex items-center justify-between gap-4">
                 {/* Mobile menu button */}
                 <button

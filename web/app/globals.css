@@ -189,6 +189,16 @@ body::before {
   }
 }
 
+@keyframes defcon-marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 /* ===== SIREN BAR ===== */
 .siren-bar {
   position: fixed;
@@ -225,6 +235,19 @@ body::before {
   background-size: 100% 4px;
   pointer-events: none;
   z-index: 9999;
+}
+
+.defcon-news-track {
+  display: inline-block;
+  min-width: 200%;
+  animation: defcon-marquee 38s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .defcon-news-track {
+    animation: none;
+  }
 }
 
 /* ===== GLASSMORPHISM AVANCÉ ===== */
