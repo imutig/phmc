@@ -55,31 +55,53 @@ export function DefconBanner({ level }: DefconBannerProps) {
         }
     }
 
-    if (hidden) {
-        return null
+    const showBanner = () => {
+        setHidden(false)
+        try {
+            window.localStorage.removeItem(storageKey)
+        } catch {
+        }
     }
 
-    const tickerText = `${content.title} • ${content.message} • ${content.title} • ${content.message}`
+    if (hidden) {
+        return (
+            <button
+                onClick={showBanner}
+                className={`fixed top-0 right-0 left-0 md:left-[280px] z-40 h-3 border-b backdrop-blur-md ${content.className} hover:opacity-100 opacity-90 transition-opacity`}
+                title={`Afficher ${content.title}`}
+            >
+                <span className="text-[9px] uppercase tracking-wider font-bold opacity-90">
+                    Afficher {content.title}
+                </span>
+            </button>
+        )
+    }
+
+    const tickerText = `${content.message}`
 
     return (
         <div className={`fixed top-0 right-0 left-0 md:left-[280px] z-40 h-10 border-b backdrop-blur-md overflow-hidden ${content.className}`}>
-            <div className="h-full px-3 md:px-4 flex items-center gap-3">
-                <span className="font-display text-[10px] md:text-xs tracking-wider uppercase font-bold shrink-0">
+            <div className="h-full px-3 md:px-4 flex items-center gap-3 relative">
+                <span className="font-display text-[10px] md:text-xs tracking-wider uppercase font-bold shrink-0 opacity-90">
                     FLASH INFO
                 </span>
 
+                <span className="font-display text-[11px] md:text-sm tracking-[0.12em] uppercase font-extrabold shrink-0 px-2 py-1 rounded bg-black/25 border border-white/20">
+                    {content.title}
+                </span>
+
                 <div className="relative flex-1 overflow-hidden">
-                    <div className="defcon-news-track whitespace-nowrap text-[11px] md:text-sm opacity-95">
-                        <span className="pr-10">{tickerText}</span>
+                    <div className="defcon-news-item whitespace-nowrap text-[11px] md:text-sm opacity-95">
+                        <span>{tickerText}</span>
                     </div>
                 </div>
 
                 <button
                     onClick={hideBanner}
-                    className="shrink-0 text-[10px] md:text-xs uppercase tracking-wider font-semibold px-2 py-1 rounded border border-white/20 hover:bg-white/10 transition-colors"
-                >
-                    Masquer
-                </button>
+                    className="absolute left-0 right-0 bottom-0 h-1.5 bg-white/10 hover:bg-white/25 transition-colors"
+                    title="Masquer le bandeau"
+                    aria-label="Masquer le bandeau DEFCON"
+                />
             </div>
         </div>
     )

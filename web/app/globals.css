@@ -191,11 +191,11 @@ body::before {
 
 @keyframes defcon-marquee {
   0% {
-    transform: translateX(0);
+    transform: translateX(100%);
   }
 
   100% {
-    transform: translateX(-50%);
+    transform: translateX(-100%);
   }
 }
 
@@ -237,15 +237,14 @@ body::before {
   z-index: 9999;
 }
 
-.defcon-news-track {
+.defcon-news-item {
   display: inline-block;
-  min-width: 200%;
-  animation: defcon-marquee 38s linear infinite;
+  animation: defcon-marquee 32s linear infinite;
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .defcon-news-track {
+  .defcon-news-item {
     animation: none;
   }
 }
