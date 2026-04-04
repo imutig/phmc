@@ -486,8 +486,8 @@ async function checkConvocationReminders() {
                                 ? `Votre convocation interne est prévue dans **1 heure**.`
                                 : `Votre rendez-vous médical est prévu dans **1 heure**.`,
                             ``,
-                            `📅 **Date:** ${scheduledDate.toLocaleDateString('fr-FR')}`,
-                            `🕐 **Heure:** ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
+                            `📅 **Date:** ${scheduledDate.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}`,
+                            `🕐 **Heure:** ${scheduledDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })}`,
                             `📍 **Lieu:** ${event.location || 'Non précisé'}`,
                             ``,
                             `Merci d'être présent(e) à l'heure.`
@@ -511,6 +511,15 @@ function buildEventDateTime(eventDate, startTime) {
         return null;
     }
 
+    const datePart = String(eventDate).split('T')[0];
+    const timePart = String(startTime || '').slice(0, 5);
+
+    // Priorité à start_time pour conserver l'horaire métier saisi côté France.
+    // Cela évite les décalages DST/serveur quand event_date (TIMESTAMPTZ) est interprétée en UTC.
+    if (timePart) {
+        return parseParisLocalDateTime(datePart, timePart);
+    }
+
     const fromEventDate = new Date(eventDate);
     if (!Number.isNaN(fromEventDate.getTime())) {
         return fromEventDate;
@@ -520,10 +529,8 @@ function buildEventDateTime(eventDate, startTime) {
         return null;
     }
 
-    const datePart = String(eventDate).split('T')[0];
-    const timePart = String(startTime).slice(0, 5);
     const [yearStr, monthStr, dayStr] = datePart.split('-');
-    const [hourStr, minuteStr] = timePart.split(':');
+    const [hourStr, minuteStr] = String(startTime).slice(0, 5).split(':');
 
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10) - 1;
@@ -537,6 +544,61 @@ function buildEventDateTime(eventDate, startTime) {
 
     const date = new Date(year, month, day, hour, minute, 0, 0);
     return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseParisLocalDateTime(datePart, timePart) {
+    const [yearStr, monthStr, dayStr] = String(datePart).split('-');
+    const [hourStr, minuteStr] = String(timePart).split(':');
+
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+    const hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+
+    if ([year, month, day, hour, minute].some(Number.isNaN)) {
+        return null;
+    }
+
+    // Conversion d'une date locale Europe/Paris vers un instant UTC.
+    const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    const offsetMinutes = getTimeZoneOffsetMinutes(new Date(utcGuess), 'Europe/Paris');
+    const utcTimestamp = utcGuess - offsetMinutes * 60 * 1000;
+    const utcDate = new Date(utcTimestamp);
+
+    return Number.isNaN(utcDate.getTime()) ? null : utcDate;
+}
+
+function getTimeZoneOffsetMinutes(date, timeZone) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+
+    const parts = dtf.formatToParts(date);
+    const map = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') {
+            map[part.type] = part.value;
+        }
+    }
+
+    const asUtc = Date.UTC(
+        Number(map.year),
+        Number(map.month) - 1,
+        Number(map.day),
+        Number(map.hour),
+        Number(map.minute),
+        Number(map.second)
+    );
+
+    return (asUtc - date.getTime()) / 60000;
 }
 
 function parseConvocationTypeFromDescription(description) {
