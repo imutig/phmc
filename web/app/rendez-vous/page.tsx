@@ -16,15 +16,14 @@ interface AvailabilitySlot {
 const DAYS_AHEAD = 10
 
 function minsToTimeStr(mins: number): string {
-    if (mins >= 1440) return "00:00"
-    return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`
+    const clamped = Math.min(Math.max(mins, 0), 1425)
+    return `${String(Math.floor(clamped / 60)).padStart(2, "0")}:${String(clamped % 60).padStart(2, "0")}`
 }
 
 function timeStrToMins(t: string): number {
-    if (!t || t === "00:00") return 1440
+    if (!t) return 0
     const [h, m] = t.split(":").map(Number)
-    const total = h * 60 + m
-    return total === 0 ? 1440 : total
+    return h * 60 + m
 }
 
 function getNextDays(count: number): Date[] {
@@ -59,7 +58,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
         if (exists) {
             onChange(slots.filter(s => s.date !== dateStr))
         } else {
-            onChange([...slots, { date: dateStr, from: "00:00", to: "00:00" }])
+            onChange([...slots, { date: dateStr, from: "00:00", to: "23:45" }])
         }
     }
 
@@ -103,7 +102,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                     {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
                                 </p>
                                 <span className="text-xs font-mono text-white bg-emerald-600/30 px-2 py-0.5">
-                                    {slot.from} – {slot.to === "00:00" ? "minuit" : slot.to}
+                                    {slot.from} – {slot.to}
                                 </span>
                             </div>
                             <div className="space-y-3">
@@ -128,12 +127,12 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                 <div>
                                     <div className="flex justify-between text-xs text-gray-500 mb-1">
                                         <span>Fin</span>
-                                        <span className="font-mono text-emerald-300">{slot.to === "00:00" ? "minuit (00h00)" : slot.to}</span>
+                                        <span className="font-mono text-emerald-300">{slot.to}</span>
                                     </div>
                                     <input
                                         type="range"
                                         min={fromMins + 15}
-                                        max={1440}
+                                        max={1425}
                                         step={15}
                                         value={toMins}
                                         onChange={e => {
@@ -146,7 +145,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                 <div className="flex justify-between text-[10px] text-gray-700 font-mono">
                                     <span>00h00</span>
                                     <span>12h00</span>
-                                    <span>00h00</span>
+                                    <span>23h45</span>
                                 </div>
                             </div>
                         </div>
