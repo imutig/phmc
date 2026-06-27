@@ -148,8 +148,9 @@ export async function PATCH(
                     .eq('id', id)
                     .single()
 
-                const patientName = fullAppointment?.patient
-                    ? `${(fullAppointment.patient as { first_name: string; last_name: string }).first_name} ${(fullAppointment.patient as { first_name: string; last_name: string }).last_name}`
+                const patientRaw = fullAppointment?.patient as unknown as { first_name: string; last_name: string } | null
+                const patientName = patientRaw?.first_name
+                    ? `${patientRaw.first_name} ${patientRaw.last_name}`
                     : (fullAppointment?.discord_username || 'Patient')
 
                 const eventStart = new Date(scheduled_date)
