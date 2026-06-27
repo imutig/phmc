@@ -19,10 +19,11 @@ interface Employee {
 }
 
 // Hiérarchie des grades (du plus haut au plus bas)
-const GRADE_HIERARCHY = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+const GRADE_HIERARCHY = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
 
 // Infos des grades
 const GRADE_INFOS: Record<string, { name: string; color: string; bgColor: string; borderColor: string }> = {
+    staff: { name: 'Staff', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-500/30' },
     direction: { name: 'Direction', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/30' },
     chirurgien: { name: 'Chirurgien', color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-500/30' },
     medecin: { name: 'Médecin', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500/30' },

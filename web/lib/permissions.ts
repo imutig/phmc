@@ -2,14 +2,15 @@
 // SYSTÈME DE PERMISSIONS GRANULAIRES
 // ============================================================
 
-// Types de grades EMS
-export type GradeType = 'direction' | 'chirurgien' | 'medecin' | 'infirmier' | 'ambulancier'
+// Types de grades EMS + Staff serveur
+export type GradeType = 'staff' | 'direction' | 'chirurgien' | 'medecin' | 'infirmier' | 'ambulancier'
 
 // Liste ordonnée des grades (hiérarchie)
-export const GRADE_HIERARCHY: GradeType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+export const GRADE_HIERARCHY: GradeType[] = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
 
 // Informations d'affichage des grades
 export const GRADE_INFO: Record<GradeType, { name: string; color: string; bgColor: string }> = {
+    staff: { name: 'Staff', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20' },
     direction: { name: 'Direction', color: 'text-red-400', bgColor: 'bg-red-500/20' },
     chirurgien: { name: 'Chirurgien', color: 'text-purple-400', bgColor: 'bg-purple-500/20' },
     medecin: { name: 'Médecin', color: 'text-blue-400', bgColor: 'bg-blue-500/20' },
@@ -265,6 +266,14 @@ export function hasDefaultPermission(grade: GradeType, permissionKey: string): b
  * Génère les permissions par défaut pour un grade
  */
 export function getDefaultPermissionsForGrade(grade: GradeType): Record<string, boolean> {
+    // Staff a toutes les permissions (comme Direction)
+    if (grade === 'staff') {
+        const permissions: Record<string, boolean> = {}
+        for (const perm of ALL_PERMISSIONS) {
+            permissions[perm.key] = true
+        }
+        return permissions
+    }
     const permissions: Record<string, boolean> = {}
     for (const perm of ALL_PERMISSIONS) {
         permissions[perm.key] = perm.defaultGrades.includes(grade)

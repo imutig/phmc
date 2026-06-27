@@ -5,6 +5,7 @@ import { getISOWeekAndYear } from "@/lib/date-utils"
 
 // Salaires par grade
 const GRADE_SALARIES: Record<string, number> = {
+    staff: 1100,
     direction: 1100,
     chirurgien: 1000,
     medecin: 900,

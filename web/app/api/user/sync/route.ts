@@ -13,6 +13,7 @@ const supabase = createClient(
 
 // Noms d'affichage des grades
 const GRADE_DISPLAY: Record<string, string> = {
+    staff: 'Staff',
     direction: 'Direction',
     chirurgien: 'Chirurgien',
     medecin: 'Médecin',

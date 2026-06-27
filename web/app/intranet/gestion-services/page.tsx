@@ -43,6 +43,7 @@ interface Totals {
 }
 
 const GRADE_DISPLAY: Record<string, { name: string; color: string }> = {
+    staff: { name: 'Staff', color: 'text-yellow-400' },
     direction: { name: 'Direction', color: 'text-red-400' },
     chirurgien: { name: 'Chirurgien', color: 'text-purple-400' },
     medecin: { name: 'Médecin', color: 'text-blue-400' },

@@ -5,6 +5,7 @@ import { validateBody, GradeSchema } from "@/lib/validations"
 
 // Salaires par grade (backup si table grades non dispo)
 const GRADE_SALARIES: Record<string, { salary: number; max: number; displayName: string }> = {
+    staff: { salary: 1100, max: 150000, displayName: 'Staff' },
     direction: { salary: 1100, max: 150000, displayName: 'Direction' },
     chirurgien: { salary: 1000, max: 120000, displayName: 'Chirurgien' },
     medecin: { salary: 900, max: 100000, displayName: 'Médecin' },

@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS discord_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     discord_role_id TEXT NOT NULL,
     role_name TEXT NOT NULL,
-    role_type TEXT NOT NULL,
+    role_type TEXT NOT NULL CHECK (role_type IN ('staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier', 'recruiter', 'candidate')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -239,6 +239,8 @@ CREATE TABLE IF NOT EXISTS grades (
 
 -- Insérer les grades par défaut (seulement si absents)
 INSERT INTO grades (name, display_name, salary_per_15min, max_weekly_salary, sort_order)
+SELECT 'staff', 'Staff', 1100, 150000, 0 WHERE NOT EXISTS (SELECT 1 FROM grades WHERE name = 'staff');
+INSERT INTO grades (name, display_name, salary_per_15min, max_weekly_salary, sort_order)
 SELECT 'direction', 'Direction', 1100, 150000, 1 WHERE NOT EXISTS (SELECT 1 FROM grades WHERE name = 'direction');
 INSERT INTO grades (name, display_name, salary_per_15min, max_weekly_salary, sort_order)
 SELECT 'chirurgien', 'Chirurgien', 1000, 120000, 2 WHERE NOT EXISTS (SELECT 1 FROM grades WHERE name = 'chirurgien');
@@ -248,6 +250,11 @@ INSERT INTO grades (name, display_name, salary_per_15min, max_weekly_salary, sor
 SELECT 'infirmier', 'Infirmier', 700, 85000, 4 WHERE NOT EXISTS (SELECT 1 FROM grades WHERE name = 'infirmier');
 INSERT INTO grades (name, display_name, salary_per_15min, max_weekly_salary, sort_order)
 SELECT 'ambulancier', 'Ambulancier', 625, 80000, 5 WHERE NOT EXISTS (SELECT 1 FROM grades WHERE name = 'ambulancier');
+
+-- Mapping Discord : grade Staff serveur GTA RP (rôle Discord ID : 1432363147586699264)
+INSERT INTO discord_roles (discord_role_id, role_name, role_type)
+SELECT '1432363147586699264', 'Staff', 'staff'
+WHERE NOT EXISTS (SELECT 1 FROM discord_roles WHERE discord_role_id = '1432363147586699264');
 
 -- Table des prises de service
 CREATE TABLE IF NOT EXISTS services (
