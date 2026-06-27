@@ -243,12 +243,7 @@ export default function DemandesPage() {
         fetchMessages(selectedId)
     }, [selectedId, fetchMessages])
 
-    // Polling 5s en complément du Realtime
-    useEffect(() => {
-        if (!selectedId) return
-        const interval = setInterval(() => fetchMessages(selectedId), 5000)
-        return () => clearInterval(interval)
-    }, [selectedId, fetchMessages])
+    // Note: pas de polling — le Realtime + fetchMessages au changement de sélection suffisent
 
     // Supabase Realtime
     useEffect(() => {
@@ -302,6 +297,15 @@ export default function DemandesPage() {
             if (!res.ok) {
                 setMessages(prev => prev.filter(m => m.id !== optimistic.id))
                 setToast({ msg: "Erreur lors de l'envoi", type: 'error' })
+            } else {
+                // Remplacer le message optimiste par le vrai message (avec le vrai ID)
+                // Ainsi Realtime ne crée pas de doublon car l'ID réel est déjà présent
+                const data = await res.json()
+                if (data.message) {
+                    setMessages(prev =>
+                        prev.map(m => m.id === optimistic.id ? data.message : m)
+                    )
+                }
             }
         } catch {
             setMessages(prev => prev.filter(m => m.id !== optimistic.id))

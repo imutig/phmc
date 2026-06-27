@@ -157,6 +157,15 @@ export default function SuiviRdvPage() {
                 setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
                 const data = await res.json()
                 setError(data.error || 'Erreur lors de l\'envoi')
+            } else {
+                // Remplacer le message optimiste par le vrai message (avec le vrai ID)
+                // Ainsi, quand Realtime se déclenche, l'ID réel est déjà présent → pas de doublon
+                const data = await res.json()
+                if (data.message) {
+                    setMessages(prev =>
+                        prev.map(m => m.id === optimisticMsg.id ? data.message : m)
+                    )
+                }
             }
         } catch {
             setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
