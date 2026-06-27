@@ -473,7 +473,7 @@ function createApiServer(client, supabase) {
 
     app.post('/api/appointment/status', authenticate, async (req, res) => {
         try {
-            const { appointmentId, channelId, discordId, newStatus, actorName, actorRole, scheduledDate, scheduledEndDate, cancelReason } = req.body;
+            const { appointmentId, channelId, discordId, newStatus, isModification, actorName, actorRole, scheduledDate, scheduledEndDate, cancelReason } = req.body;
 
             if (!newStatus || !actorName) {
                 return res.status(400).json({ error: 'Paramètres manquants' });
@@ -481,7 +481,7 @@ function createApiServer(client, supabase) {
 
             const statusLabels = {
                 'pending': '⏳ En attente',
-                'scheduled': '📅 Programmé',
+                'scheduled': isModification ? '📅 Modifié' : '📅 Programmé',
                 'completed': '✅ Terminé',
                 'cancelled': '❌ Annulé'
             };
@@ -542,11 +542,11 @@ function createApiServer(client, supabase) {
                             const endDate = new Date(scheduledEndDate);
                             dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
                         }
-                        dmEmbed.setTitle('📅 Rendez-vous Programmé')
+                        dmEmbed.setTitle(isModification ? '📅 Rendez-vous Modifié' : '📅 Rendez-vous Programmé')
                             .setDescription([
                                 `Bonjour,`,
                                 ``,
-                                `Votre rendez-vous a été programmé par **${actorName}** (${roleLabel}).`,
+                                `Votre rendez-vous a été ${isModification ? 'modifié' : 'programmé'} par **${actorName}** (${roleLabel}).`,
                                 ``,
                                 `📅 **Date:** ${dateStr}`,
                                 getLinkLine(),

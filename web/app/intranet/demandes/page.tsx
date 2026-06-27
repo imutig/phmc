@@ -269,11 +269,9 @@ export default function DemandesPage() {
         return () => { supabase.removeChannel(channel) }
     }, [fetchAppointments])
 
-    // Marquer comme lu automatiquement quand de nouveaux messages arrivent et qu'on regarde le RDV
+    // Marquer comme lu automatiquement quand on regarde le RDV
     useEffect(() => {
-        if (!selectedId || messages.length === 0) return
-        const lastMsg = messages[messages.length - 1]
-        if (!lastMsg.is_from_staff) {
+        if (selectedId) {
             markAsRead(selectedId)
         }
     }, [selectedId, messages, markAsRead])

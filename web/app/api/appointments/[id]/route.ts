@@ -78,16 +78,18 @@ export async function PATCH(
 
         const supabase = await createClient()
 
-        // 1. Récupérer le RDV pour avoir le channel_id et discord_id
+        // 1. Récupérer le RDV
         const { data: appointment, error: fetchError } = await supabase
             .from('appointments')
-            .select('discord_channel_id, discord_id')
+            .select('discord_channel_id, discord_id, status, scheduled_date, discord_username, patient:patients(first_name, last_name)')
             .eq('id', id)
             .single()
 
         if (fetchError || !appointment) {
             return NextResponse.json({ error: "Rendez-vous introuvable" }, { status: 404 })
         }
+
+        const isModification = appointment.status === 'scheduled'
 
         // 2. Récupérer le displayName et le rôle du staff
         const BOT_API_URL = process.env.BOT_API_URL || 'http://localhost:3001'
@@ -146,7 +148,11 @@ export async function PATCH(
                 dateStyle: 'long',
                 timeStyle: 'short'
             }).replace(/—/g, '-').replace(/–/g, '-')
-            systemContent = `Le rendez-vous a été programmé pour le ${formattedDate} par ${staffDisplayName} (${staffRole}).`
+            if (isModification) {
+                systemContent = `Le rendez-vous a été modifié pour le ${formattedDate} par ${staffDisplayName} (${staffRole}).`
+            } else {
+                systemContent = `Le rendez-vous a été programmé pour le ${formattedDate} par ${staffDisplayName} (${staffRole}).`
+            }
         } else if (status === 'completed') {
             systemContent = `Le rendez-vous a été marqué comme terminé par ${staffDisplayName} (${staffRole}).`
         } else if (status === 'cancelled') {
@@ -167,19 +173,39 @@ export async function PATCH(
                 })
         }
 
-        // 5. Sync planning : créer un événement quand le RDV est confirmé
+        // 5. Sync planning : créer/modifier un événement quand le RDV est confirmé
         if (status === 'scheduled' && scheduled_date) {
             try {
-                const { data: fullAppointment } = await supabase
-                    .from('appointments')
-                    .select('discord_id, discord_username, patient:patients(first_name, last_name)')
-                    .eq('id', id)
-                    .single()
-
-                const patientRaw = fullAppointment?.patient as unknown as { first_name: string; last_name: string } | null
+                const patientRaw = appointment?.patient as unknown as { first_name: string; last_name: string } | null
                 const patientName = patientRaw?.first_name
                     ? `${patientRaw.first_name} ${patientRaw.last_name}`
-                    : (fullAppointment?.discord_username || 'Patient')
+                    : (appointment?.discord_username || 'Patient')
+
+                // S'il s'agit d'une modification, supprimer d'abord l'ancien événement
+                if (isModification && appointment.scheduled_date) {
+                    try {
+                        const oldTitle = `RDV - ${patientName}`
+                        const { data: matchingEvents } = await supabase
+                            .from('events')
+                            .select(`
+                                id,
+                                event_participants!inner(user_discord_id)
+                            `)
+                            .eq('event_type', 'rdv')
+                            .eq('title', oldTitle)
+                            .eq('event_participants.user_discord_id', appointment.discord_id)
+                            .is('deleted_at', null)
+
+                        if (matchingEvents && matchingEvents.length > 0) {
+                            await supabase
+                                .from('events')
+                                .update({ deleted_at: new Date().toISOString() })
+                                .eq('id', matchingEvents[0].id)
+                        }
+                    } catch (deleteOldEventError) {
+                        console.error('Error deleting old planning event:', deleteOldEventError)
+                    }
+                }
 
                 const eventStart = new Date(scheduled_date)
                 const eventEnd = scheduled_end_date ? new Date(scheduled_end_date) : new Date(eventStart.getTime() + 60 * 60 * 1000)
@@ -199,10 +225,10 @@ export async function PATCH(
                     created_by: session.user.discord_id
                 }).select('id').single()
 
-                if (newEvent && fullAppointment?.discord_id && session.user.discord_id) {
+                if (newEvent && appointment?.discord_id && session.user.discord_id) {
                     await supabase.from('event_participants').insert([
                         { event_id: newEvent.id, user_discord_id: session.user.discord_id, user_name: staffDisplayName },
-                        { event_id: newEvent.id, user_discord_id: fullAppointment.discord_id, user_name: patientName }
+                        { event_id: newEvent.id, user_discord_id: appointment.discord_id, user_name: patientName }
                     ])
                 }
             } catch (planningError) {
@@ -225,6 +251,7 @@ export async function PATCH(
                         channelId: appointment.discord_channel_id || null,
                         discordId: appointment.discord_id,
                         newStatus: status,
+                        isModification: isModification,
                         actorName: staffDisplayName,
                         actorRole: staffRole,
                         scheduledDate: scheduled_date || null,
