@@ -500,7 +500,7 @@ export default function DemandesPage() {
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
                         </div>
-                    ) : filteredAppointments.length === 0 ? (
+                    ) : sortedAppointments.length === 0 ? (
                         <div className="text-center py-12">
                             <Calendar className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                             <p className="text-gray-500 font-sans text-sm">Aucune demande</p>
