@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 
 const LS_PREFIX = "rdv_read_"
@@ -37,6 +37,9 @@ export function useRdvNotifications(): RdvNotifications {
     const [pendingCount, setPendingCount] = useState(0)
     const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set())
     const [myAppointments, setMyAppointments] = useState<MyAppointment[]>([])
+    
+    // Ref pour stocker les rendez-vous sans recréer l'effet
+    const myAppointmentsRef = useRef<MyAppointment[]>([])
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -46,6 +49,7 @@ export function useRdvNotifications(): RdvNotifications {
             setPendingCount(data.pending_count ?? 0)
             const appts: MyAppointment[] = data.my_appointments ?? []
             setMyAppointments(appts)
+            myAppointmentsRef.current = appts
             setUnreadIds(computeUnreadIds(appts))
         } catch {
             // Silencieux - ne pas casser la sidebar
@@ -66,8 +70,8 @@ export function useRdvNotifications(): RdvNotifications {
         fetchNotifications()
 
         const handleUpdate = () => {
-            // Recalculer localement en premier
-            setUnreadIds(computeUnreadIds(myAppointments))
+            // Recalculer localement en premier via la ref
+            setUnreadIds(computeUnreadIds(myAppointmentsRef.current))
             // Puis fetch du serveur pour mettre à jour
             fetchNotifications()
         }
@@ -115,7 +119,7 @@ export function useRdvNotifications(): RdvNotifications {
             supabase.removeChannel(channel)
             supabase.removeChannel(rdvChannel)
         }
-    }, [fetchNotifications, myAppointments])
+    }, [fetchNotifications])
 
     const totalCount = pendingCount + unreadIds.size
 
