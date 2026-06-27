@@ -425,14 +425,7 @@ function createApiServer(client, supabase) {
 
             const role = senderRole || 'Staff';
 
-            // 1. Envoyer DM au patient
-            try {
-                const user = await client.users.fetch(discordId);
-                await user.send(`**${senderName}** (${role}): ${content}`);
-            } catch (dmError) {
-                console.error('[API] Appointment DM error:', dmError.message);
-                // On continue même si DM échoue
-            }
+            // 1. Envoyer DM au patient (Désactivé - communication exclusivement sur le site)
 
             // 2. Poster dans le salon Discord
             if (channelId) {

@@ -296,6 +296,17 @@ export default function DemandesPage() {
                     const newMsg = payload.new as Message
                     setMessages(prev => {
                         if (prev.find(m => m.id === newMsg.id)) return prev
+                        // Remplacer le message temporaire correspondant par le vrai message
+                        const tempIndex = prev.findIndex(m =>
+                            m.id.startsWith('temp_') &&
+                            m.content === newMsg.content &&
+                            m.sender_discord_id === newMsg.sender_discord_id
+                        )
+                        if (tempIndex !== -1) {
+                            const next = [...prev]
+                            next[tempIndex] = newMsg
+                            return next
+                        }
                         return [...prev, newMsg]
                     })
                 }
