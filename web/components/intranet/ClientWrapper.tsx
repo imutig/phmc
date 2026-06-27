@@ -38,9 +38,7 @@ export function IntranetClientWrapper({
     const hasRole = (role: RoleType) => userData.roles.includes(role)
     const checkPermission = (key: string) => !!userPermissions[key]
 
-    const isDirection = hasRole('direction')
-    // Legacy support, but allows overriding via specific 'edit' permission if we had one generic
-    // Pour l'instant on garde isDirection par défaut mais on pourra migrer page par page
+    const isDirection = hasRole('direction') || hasRole('staff')
     const canEdit = isDirection
 
     const { shouldShowOnboarding, completeOnboarding, resetOnboarding, isLoading } = useOnboarding()

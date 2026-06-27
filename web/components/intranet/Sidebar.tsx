@@ -70,13 +70,13 @@ const menuItems = [
         href: "/intranet/gestion-services",
         label: "Gestion Services",
         icon: UserCog,
-        roles: ['direction']
+        roles: ['staff', 'direction']
     },
     {
         href: "/intranet/dashboard",
         label: "Dashboard",
         icon: BarChart3,
-        roles: ['direction']
+        roles: ['staff', 'direction']
     },
     {
         href: "/intranet/planning",
@@ -132,25 +132,25 @@ const menuItems = [
         href: "/intranet/salaires",
         label: "Salaires",
         icon: DollarSign,
-        roles: ['direction']
+        roles: ['staff', 'direction']
     },
     {
         href: "/intranet/permissions",
         label: "Permissions",
         icon: Shield,
-        roles: ['direction']
+        roles: ['staff', 'direction']
     },
     {
         href: "/intranet/effectif",
         label: "Effectif",
         icon: Users,
-        roles: ['direction']
+        roles: ['staff', 'direction']
     },
     {
         href: "/intranet/audit",
         label: "Logs",
         icon: History,
-        roles: ['direction'],
+        roles: ['staff', 'direction'],
         permission: 'audit.view'
     },
     {

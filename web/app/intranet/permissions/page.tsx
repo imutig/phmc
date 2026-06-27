@@ -60,8 +60,8 @@ export default function PermissionsPage() {
     }
 
     const handleTogglePermission = async (grade: GradeType, permKey: string, currentValue: boolean) => {
-        if (grade === 'direction') {
-            toast.error("Impossible de modifier les permissions de la Direction")
+        if (grade === 'direction' || grade === 'staff') {
+            toast.error("Impossible de modifier les permissions de la Direction ou du Staff")
             return
         }
 
@@ -100,7 +100,7 @@ export default function PermissionsPage() {
     }
 
     const handleResetGrade = async () => {
-        if (!resettingGrade || resettingGrade === 'direction') return
+        if (!resettingGrade || resettingGrade === 'direction' || resettingGrade === 'staff') return
 
         setSaving(`reset-${resettingGrade}`)
         try {
@@ -193,16 +193,16 @@ export default function PermissionsPage() {
                     <button
                         key={grade}
                         onClick={() => setSelectedGrade(grade)}
-                        disabled={grade === 'direction'}
+                        disabled={grade === 'direction' || grade === 'staff'}
                         className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${selectedGrade === grade
                             ? `${GRADE_INFO[grade].bgColor} ${GRADE_INFO[grade].color} ring-2 ring-current`
-                            : grade === 'direction'
-                                ? 'bg-red-500/10 text-red-400/50 cursor-not-allowed'
+                            : (grade === 'direction' || grade === 'staff')
+                                ? `${GRADE_INFO[grade].bgColor} ${GRADE_INFO[grade].color} opacity-50 cursor-not-allowed`
                                 : 'bg-[#1a1a1a] text-gray-400 hover:text-white hover:bg-[#2a2a2a]'
                             }`}
                     >
                         {GRADE_INFO[grade].name}
-                        {grade === 'direction' && (
+                        {(grade === 'direction' || grade === 'staff') && (
                             <span className="ml-2 text-[10px] opacity-60">(Tous droits)</span>
                         )}
                     </button>
@@ -210,7 +210,7 @@ export default function PermissionsPage() {
             </div>
 
             {/* Bouton réinitialiser */}
-            {selectedGrade !== 'direction' && (
+            {selectedGrade !== 'direction' && selectedGrade !== 'staff' && (
                 <div className="flex justify-end mb-4">
                     <button
                         onClick={() => setResettingGrade(selectedGrade)}
@@ -279,7 +279,7 @@ export default function PermissionsPage() {
                                                 const isGranted = getPermissionValue(selectedGrade, perm.key)
                                                 const modified = isModified(selectedGrade, perm.key)
                                                 const isSaving = saving === `${selectedGrade}-${perm.key}`
-                                                const isDirection = selectedGrade === 'direction'
+                                                const isDirection = selectedGrade === 'direction' || selectedGrade === 'staff'
 
                                                 return (
                                                     <div
