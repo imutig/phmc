@@ -6,6 +6,7 @@ import { getISOWeekAndYear } from "@/lib/date-utils"
 
 // Salaires par grade (fallback)
 const GRADE_SALARIES: Record<string, number> = {
+    staff: 1100,
     direction: 1100,
     chirurgien: 1000,
     medecin: 900,
@@ -166,7 +167,7 @@ export async function PATCH(request: Request) {
 
     // Vérifier que c'est bien le propriétaire ou un admin
     const isOwner = service.user_discord_id === session.user.discord_id
-    const isAdmin = authResult.roles.includes('direction')
+    const isAdmin = authResult.roles.includes('direction') || authResult.roles.includes('staff')
 
     if (!isOwner && !isAdmin) {
         return NextResponse.json({ error: "Non autorisé" }, { status: 403 })
@@ -262,7 +263,7 @@ export async function DELETE(request: Request) {
 
     // Vérifier les permissions
     const isOwner = service.user_discord_id === session.user.discord_id
-    const isAdmin = authResult.roles.includes('direction')
+    const isAdmin = authResult.roles.includes('direction') || authResult.roles.includes('staff')
 
     if (!isOwner && !isAdmin) {
         return NextResponse.json({ error: "Non autorisé" }, { status: 403 })

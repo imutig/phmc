@@ -43,7 +43,7 @@ export function TopbarWrapper({ userRoles, hasDefconBanner = false, onMenuClick 
 
     // Déterminer le grade principal à partir des rôles
     const gradeFromRoles = () => {
-        const gradeOrder = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+        const gradeOrder = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
         for (const grade of gradeOrder) {
             if (userRoles.includes(grade)) return grade
         }

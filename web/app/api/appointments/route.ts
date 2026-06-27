@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
         // Vérifier si l'utilisateur est staff via le système de rôles moderne
         const userRoles = session.user.roles || []
         const isStaff = userRoles.some((role: string) =>
-            ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier'].includes(role)
+            ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier'].includes(role)
         )
 
         // Si non staff, retourner seulement ses propres rendez-vous

@@ -39,9 +39,11 @@ async function getAllPermissionsFromDB(): Promise<Record<string, Record<string, 
         }
     }
 
-    // Direction a TOUJOURS toutes les permissions
+    // Direction et Staff ont TOUJOURS toutes les permissions
     for (const perm of ALL_PERMISSIONS) {
         result['direction'][perm.key] = true
+        if (!result['staff']) result['staff'] = {}
+        result['staff'][perm.key] = true
     }
 
     permissionsCache = { data: result, expiry: Date.now() + CACHE_DURATION }
@@ -73,7 +75,7 @@ export async function GET(request: Request) {
         }
 
         // Déterminer le grade principal de l'utilisateur
-        const gradeHierarchy: GradeType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+        const gradeHierarchy: GradeType[] = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
         let userGrade: GradeType = 'ambulancier'
         for (const grade of gradeHierarchy) {
             if (authResult.roles.includes(grade as RoleType)) {
@@ -124,9 +126,9 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "grade, permission_key et granted requis" }, { status: 400 })
     }
 
-    // Impossible de modifier les permissions de la direction
-    if (grade === 'direction') {
-        return NextResponse.json({ error: "Impossible de modifier les permissions de la Direction" }, { status: 400 })
+    // Impossible de modifier les permissions de la direction ou du staff
+    if (grade === 'direction' || grade === 'staff') {
+        return NextResponse.json({ error: "Impossible de modifier les permissions de la Direction ou du Staff" }, { status: 400 })
     }
 
     // Vérifier que le grade existe
@@ -189,8 +191,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "grade et reset=true requis" }, { status: 400 })
     }
 
-    if (grade === 'direction') {
-        return NextResponse.json({ error: "Impossible de modifier la Direction" }, { status: 400 })
+    if (grade === 'direction' || grade === 'staff') {
+        return NextResponse.json({ error: "Impossible de modifier la Direction ou le Staff" }, { status: 400 })
     }
 
     if (!GRADE_HIERARCHY.includes(grade)) {

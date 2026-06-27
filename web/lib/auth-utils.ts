@@ -2,11 +2,11 @@ import { createClient } from "@/lib/supabase/server"
 import { auth } from "@/lib/auth"
 import { getDefaultPermissionsForGrade, GradeType, ALL_PERMISSIONS } from "@/lib/permissions"
 
-// Grades EMS : direction, chirurgien, medecin, infirmier, ambulancier + recruiter/candidate
-export type RoleType = 'direction' | 'chirurgien' | 'medecin' | 'infirmier' | 'ambulancier' | 'recruiter' | 'candidate'
+// Grades EMS : direction, chirurgien, medecin, infirmier, ambulancier + staff serveur + recruiter/candidate
+export type RoleType = 'staff' | 'direction' | 'chirurgien' | 'medecin' | 'infirmier' | 'ambulancier' | 'recruiter' | 'candidate'
 
 // Liste des grades EMS (pour calcul salaire)
-export const EMS_GRADES: RoleType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+export const EMS_GRADES: RoleType[] = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
 
 export interface RoleCheckResult {
     roles: RoleType[]
@@ -223,31 +223,31 @@ export async function requireRoles(requiredRoles: RoleType[]) {
 }
 
 /**
- * Accès admin (direction + recruteur)
+ * Accès admin (direction + recruteur + staff)
  */
 export async function requireAdminAccess() {
-    return requireRoles(['direction', 'recruiter'])
+    return requireRoles(['staff', 'direction', 'recruiter'])
 }
 
 /**
- * Accès intranet (tous les grades EMS)
+ * Accès intranet (tous les grades EMS + staff)
  */
 export async function requireEmployeeAccess() {
-    return requireRoles(['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier', 'recruiter'])
+    return requireRoles(['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier', 'recruiter'])
 }
 
 /**
- * Accès édition (direction uniquement)
+ * Accès édition (direction + staff)
  */
 export async function requireEditorAccess() {
-    return requireRoles(['direction'])
+    return requireRoles(['staff', 'direction'])
 }
 
 /**
  * Récupère le grade principal de l'utilisateur
  */
 export function getPrimaryGrade(roles: RoleType[]): RoleType | null {
-    const gradeHierarchy: RoleType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+    const gradeHierarchy: RoleType[] = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
     for (const grade of gradeHierarchy) {
         if (roles.includes(grade)) return grade
     }
@@ -277,7 +277,7 @@ async function getPermissionsMap(): Promise<Record<string, Record<string, boolea
     const result: Record<string, Record<string, boolean>> = {}
 
     // Initialiser avec les permissions par défaut
-    const grades: GradeType[] = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+    const grades: GradeType[] = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
     for (const grade of grades) {
         result[grade] = getDefaultPermissionsForGrade(grade)
     }
@@ -290,10 +290,12 @@ async function getPermissionsMap(): Promise<Record<string, Record<string, boolea
         }
     }
 
-    // Direction a toujours tout
+    // Direction et Staff ont toujours tout
     for (const perm of ALL_PERMISSIONS) {
         if (!result['direction']) result['direction'] = {}
         result['direction'][perm.key] = true
+        if (!result['staff']) result['staff'] = {}
+        result['staff'][perm.key] = true
     }
 
     permissionsCache = { data: result, expiry: Date.now() + PERMISSIONS_CACHE_DURATION }
@@ -304,8 +306,8 @@ async function getPermissionsMap(): Promise<Record<string, Record<string, boolea
  * Vérifie si un utilisateur a une permission spécifique
  */
 export async function checkPermission(userRoles: RoleType[], permissionKey: string): Promise<boolean> {
-    // Direction a toujours tout
-    if (userRoles.includes('direction')) return true
+    // Direction et Staff ont toujours tout
+    if (userRoles.includes('direction') || userRoles.includes('staff')) return true
 
     // Trouver le grade principal
     const primaryGrade = getPrimaryGrade(userRoles)
@@ -358,8 +360,8 @@ export function invalidatePermissionsCache() {
  * Récupère toutes les permissions actives pour un set de rôles
  */
 export async function getUserPermissions(userRoles: RoleType[]): Promise<Record<string, boolean>> {
-    // Direction a toujours tout
-    if (userRoles.includes('direction')) {
+    // Direction et Staff ont toujours tout
+    if (userRoles.includes('direction') || userRoles.includes('staff')) {
         const allPerms: Record<string, boolean> = {}
         ALL_PERMISSIONS.forEach(p => allPerms[p.key] = true)
         return allPerms

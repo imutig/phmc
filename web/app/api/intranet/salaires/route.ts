@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
 
 // Salaires par grade
 const GRADE_SALARIES: Record<string, { perSlot: number; maxWeekly: number }> = {
+    staff: { perSlot: 1100, maxWeekly: 150000 },
     direction: { perSlot: 1100, maxWeekly: 150000 },
     chirurgien: { perSlot: 1000, maxWeekly: 120000 },
     medecin: { perSlot: 900, maxWeekly: 100000 },
@@ -20,6 +21,7 @@ const GRADE_SALARIES: Record<string, { perSlot: number; maxWeekly: number }> = {
 }
 
 const GRADE_DISPLAY: Record<string, string> = {
+    staff: 'Staff',
     direction: 'Direction',
     chirurgien: 'Chirurgien',
     medecin: 'Médecin',

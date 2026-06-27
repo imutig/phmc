@@ -7,6 +7,7 @@ import { validateBody, ServiceCreateSchema } from "@/lib/validations"
 
 // Salaires par grade (fallback)
 const GRADE_SALARIES: Record<string, number> = {
+    staff: 1100,
     direction: 1100,
     chirurgien: 1000,
     medecin: 900,
@@ -15,6 +16,7 @@ const GRADE_SALARIES: Record<string, number> = {
 }
 
 const GRADE_MAX_WEEKLY: Record<string, number> = {
+    staff: 150000,
     direction: 150000,
     chirurgien: 120000,
     medecin: 100000,

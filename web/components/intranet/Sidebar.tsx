@@ -41,9 +41,10 @@ interface UserProfile {
 }
 
 // Tous les grades EMS pour l'accès basique
-const EMS_GRADES = ['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
+const EMS_GRADES = ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']
 
 const GRADE_COLORS: Record<string, string> = {
+    'Staff': 'text-yellow-400',
     'Direction': 'text-red-400',
     'Chirurgien': 'text-purple-400',
     'Médecin': 'text-blue-400',

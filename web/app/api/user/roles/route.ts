@@ -15,7 +15,9 @@ export async function GET() {
 
     // Déterminer le rôle principal (grade le plus élevé)
     let primaryRole = "Visiteur"
-    if (roles.includes('direction')) {
+    if (roles.includes('staff')) {
+        primaryRole = "Staff"
+    } else if (roles.includes('direction')) {
         primaryRole = "Direction"
     } else if (roles.includes('chirurgien')) {
         primaryRole = "Chirurgien"

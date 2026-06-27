@@ -15,7 +15,7 @@ export const ServiceCreateSchema = z.object({
 export const ServiceAdminCreateSchema = z.object({
     user_discord_id: z.string().min(1, "ID Discord requis"),
     user_name: z.string().min(1, "Nom requis"),
-    grade_name: z.enum(['direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']),
+    grade_name: z.enum(['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier']),
     start_time: z.string().datetime(),
     end_time: z.string().datetime(),
 })
