@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS discord_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     discord_role_id TEXT NOT NULL,
     role_name TEXT NOT NULL,
-    role_type TEXT NOT NULL,
+    role_type TEXT NOT NULL CHECK (role_type IN ('staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier', 'recruiter', 'candidate')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
