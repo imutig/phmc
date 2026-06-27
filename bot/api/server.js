@@ -480,7 +480,7 @@ function createApiServer(client, supabase) {
 
     app.post('/api/appointment/status', authenticate, async (req, res) => {
         try {
-            const { channelId, discordId, newStatus, actorName, actorRole, scheduledDate, scheduledEndDate, cancelReason } = req.body;
+            const { appointmentId, channelId, discordId, newStatus, actorName, actorRole, scheduledDate, scheduledEndDate, cancelReason } = req.body;
 
             if (!newStatus || !actorName) {
                 return res.status(400).json({ error: 'Paramètres manquants' });
@@ -509,10 +509,10 @@ function createApiServer(client, supabase) {
 
                         if (newStatus === 'scheduled' && scheduledDate) {
                             const date = new Date(scheduledDate);
-                            let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+                            let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).replace(/—/g, '-').replace(/–/g, '-');
                             if (scheduledEndDate) {
                                 const endDate = new Date(scheduledEndDate);
-                                dateStr += ` → ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                                dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
                             }
                             embed.addFields({ name: '📅 Date du rendez-vous', value: dateStr, inline: false });
                         }
@@ -536,12 +536,18 @@ function createApiServer(client, supabase) {
                         .setColor(color)
                         .setTimestamp();
 
+                    // Base description builder
+                    const getLinkLine = () => {
+                        if (!appointmentId) return '';
+                        return `\n🔗 **Suivre votre rendez-vous :** [Accéder à l'interface](${process.env.WEB_URL || 'http://localhost:3000'}/rendez-vous/${appointmentId})\n`;
+                    };
+
                     if (newStatus === 'scheduled' && scheduledDate) {
                         const date = new Date(scheduledDate);
-                        let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+                        let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).replace(/—/g, '-').replace(/–/g, '-');
                         if (scheduledEndDate) {
                             const endDate = new Date(scheduledEndDate);
-                            dateStr += ` → ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                            dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
                         }
                         dmEmbed.setTitle('📅 Rendez-vous Programmé')
                             .setDescription([
@@ -550,7 +556,7 @@ function createApiServer(client, supabase) {
                                 `Votre rendez-vous a été programmé par **${actorName}** (${roleLabel}).`,
                                 ``,
                                 `📅 **Date:** ${dateStr}`,
-                                ``,
+                                getLinkLine(),
                                 `Merci de votre confiance !`
                             ].join('\n'));
                     } else if (newStatus === 'completed') {
@@ -559,7 +565,7 @@ function createApiServer(client, supabase) {
                                 `Bonjour,`,
                                 ``,
                                 `Votre rendez-vous a été clôturé par **${actorName}** (${roleLabel}).`,
-                                ``,
+                                getLinkLine(),
                                 `Merci pour votre visite au Pillbox Hill Medical Center !`
                             ].join('\n'));
                     } else if (newStatus === 'cancelled') {
@@ -569,7 +575,7 @@ function createApiServer(client, supabase) {
                                 ``,
                                 `Votre rendez-vous a été annulé par **${actorName}** (${roleLabel}).`,
                                 cancelReason ? `\n💬 **Raison:** ${cancelReason}` : '',
-                                ``,
+                                getLinkLine(),
                                 `Si vous avez des questions, n'hésitez pas à nous contacter.`
                             ].join('\n'));
                     }

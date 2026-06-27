@@ -211,13 +211,15 @@ async function sendAppointmentReceivedDM(client, supabase, appointment, patient)
             ``,
             `Notre équipe médicale va vous contacter prochainement.`,
             ``,
+            `🔗 **Suivre votre rendez-vous :** [Accéder à l'interface](${process.env.WEB_URL || 'http://localhost:3000'}/rendez-vous/${appointment.id})`,
+            ``,
             `💬 **Vous pouvez répondre directement à ce DM** pour communiquer avec nos médecins.`
         ].join('\n'))
         .addFields(
             { name: '📋 Référence', value: `\`${appointment.id.substring(0, 8)}...\``, inline: true },
             { name: '📊 Statut', value: 'En attente', inline: true }
         )
-        .setFooter({ text: `PHMC • Pillbox Hill Medical Center` })
+        .setFooter({ text: `PHMC - Pillbox Hill Medical Center` })
         .setTimestamp();
 
     try {

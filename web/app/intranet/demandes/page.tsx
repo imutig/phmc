@@ -172,7 +172,7 @@ function AvailabilityGrid({ slots, onSelect, disabled }: {
                         {formatDayLabel(slot.date)}
                     </p>
                     <p className={`text-sm font-mono ${disabled ? 'text-gray-500' : 'text-emerald-300'}`}>
-                        {slot.from} – {slot.to === '00:00' ? 'minuit' : slot.to}
+                        {slot.from} - {slot.to === '00:00' ? 'minuit' : slot.to}
                     </p>
                 </button>
             ))}
@@ -247,7 +247,36 @@ export default function DemandesPage() {
         fetchMessages(selectedId)
     }, [selectedId, fetchMessages])
 
-    // Note: pas de polling — le Realtime + fetchMessages au changement de sélection suffisent
+    // Note: pas de polling - le Realtime + fetchMessages au changement de sélection suffisent
+
+    // Realtime pour la liste des rendez-vous
+    useEffect(() => {
+        const supabase = createClient()
+        const channel = supabase
+            .channel('staff_appointments_list')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'appointments'
+                },
+                () => {
+                    fetchAppointments(true) // Silent refresh
+                }
+            )
+            .subscribe()
+        return () => { supabase.removeChannel(channel) }
+    }, [fetchAppointments])
+
+    // Marquer comme lu automatiquement quand de nouveaux messages arrivent et qu'on regarde le RDV
+    useEffect(() => {
+        if (!selectedId || messages.length === 0) return
+        const lastMsg = messages[messages.length - 1]
+        if (!lastMsg.is_from_staff) {
+            markAsRead(selectedId)
+        }
+    }, [selectedId, messages, markAsRead])
 
     // Supabase Realtime
     useEffect(() => {
@@ -275,7 +304,7 @@ export default function DemandesPage() {
         return () => { supabase.removeChannel(channel) }
     }, [selectedId])
 
-    // ─── Actions ────────────────────────────────────────────────────────────────────────────
+    // --- Actions ----------------------------------------------------------------------------
 
     const sendMessage = async () => {
         if (!newMessage.trim() || !selectedId || sending) return
@@ -466,7 +495,7 @@ export default function DemandesPage() {
                 )}
             </AnimatePresence>
 
-            {/* Panneau gauche — liste */}
+            {/* Panneau gauche - liste */}
             <div className={`${selectedId ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-80 xl:w-96 border-r border-white/10 flex-shrink-0`}>
                 <div className="p-4 border-b border-white/10">
                     <div className="flex items-center justify-between mb-3">
@@ -551,7 +580,7 @@ export default function DemandesPage() {
                 </div>
             </div>
 
-            {/* Panneau droit — détail */}
+            {/* Panneau droit - détail */}
             {selectedId && selected ? (
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="p-4 border-b border-white/10 flex items-start gap-3">
@@ -568,7 +597,7 @@ export default function DemandesPage() {
                                 </h2>
                                 <StatusBadge status={selected.status} />
                             </div>
-                            <p className="text-xs text-gray-400 mt-0.5">{selected.reason_category}{selected.reason ? ` — ${selected.reason}` : ''}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{selected.reason_category}{selected.reason ? ` - ${selected.reason}` : ''}</p>
                             {selected.patient?.phone && (
                                 <p className="text-xs text-gray-500 mt-0.5">📞 {selected.patient.phone}</p>
                             )}
@@ -682,6 +711,16 @@ export default function DemandesPage() {
                                     </div>
                                 )}
                                 {messages.map(msg => {
+                                    if (msg.sender_discord_id === 'system') {
+                                        return (
+                                            <div key={msg.id} className="flex justify-center my-2">
+                                                <div className="bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-gray-400 font-sans flex items-center gap-2 max-w-[85%] rounded">
+                                                    <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                                                    <span>{msg.content}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
                                     const isStaff = msg.is_from_staff
                                     const isMe = msg.sender_discord_id === session?.user?.discord_id && isStaff
                                     return (
@@ -736,7 +775,7 @@ export default function DemandesPage() {
                                 </div>
                             ) : (
                                 <div className="border-t border-white/10 p-3 text-center text-xs text-gray-500 font-sans">
-                                    Rendez-vous clôturé — chat désactivé
+                                    Rendez-vous clôturé - chat désactivé
                                 </div>
                             )}
                         </div>
@@ -778,7 +817,7 @@ export default function DemandesPage() {
                                     {new Date(confirmSlot.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Dispo patient : {confirmSlot.slotFrom} – {confirmSlot.slotTo === '00:00' ? 'minuit' : confirmSlot.slotTo}
+                                    Dispo patient : {confirmSlot.slotFrom} - {confirmSlot.slotTo === '00:00' ? 'minuit' : confirmSlot.slotTo}
                                 </p>
                             </div>
                             <div className="space-y-3 mb-4">

@@ -102,7 +102,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                     {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
                                 </p>
                                 <span className="text-xs font-mono text-white bg-emerald-600/30 px-2 py-0.5">
-                                    {slot.from} – {slot.to}
+                                    {slot.from} - {slot.to}
                                 </span>
                             </div>
                             <div className="space-y-3">

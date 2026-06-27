@@ -48,7 +48,7 @@ export function useRdvNotifications(): RdvNotifications {
             setMyAppointments(appts)
             setUnreadIds(computeUnreadIds(appts))
         } catch {
-            // Silencieux — ne pas casser la sidebar
+            // Silencieux - ne pas casser la sidebar
         }
     }, [])
 
@@ -59,15 +59,26 @@ export function useRdvNotifications(): RdvNotifications {
             next.delete(appointmentId)
             return next
         })
+        window.dispatchEvent(new Event("rdv_notifications_changed"))
     }, [])
 
     useEffect(() => {
         fetchNotifications()
 
+        const handleUpdate = () => {
+            // Recalculer localement en premier
+            setUnreadIds(computeUnreadIds(myAppointments))
+            // Puis fetch du serveur pour mettre à jour
+            fetchNotifications()
+        }
+
+        window.addEventListener("storage", handleUpdate)
+        window.addEventListener("rdv_notifications_changed", handleUpdate)
+
         // Rafraîchir toutes les 60s
         const interval = setInterval(fetchNotifications, 60_000)
 
-        // Realtime : nouveau message patient → recalcul immédiat
+        // Realtime : nouveau message patient -> recalcul immédiat
         const supabase = createClient()
         const channel = supabase
             .channel("rdv-notif-messages")
@@ -83,13 +94,13 @@ export function useRdvNotifications(): RdvNotifications {
             )
             .subscribe()
 
-        // Realtime : nouveau RDV pending → mise à jour du badge pending
+        // Realtime : tout changement sur les rendez-vous (statut, assignation, etc.)
         const rdvChannel = supabase
             .channel("rdv-notif-appointments")
             .on(
                 "postgres_changes",
                 {
-                    event: "INSERT",
+                    event: "*",
                     schema: "public",
                     table: "appointments"
                 },
@@ -99,15 +110,12 @@ export function useRdvNotifications(): RdvNotifications {
 
         return () => {
             clearInterval(interval)
+            window.removeEventListener("storage", handleUpdate)
+            window.removeEventListener("rdv_notifications_changed", handleUpdate)
             supabase.removeChannel(channel)
             supabase.removeChannel(rdvChannel)
         }
-    }, [fetchNotifications])
-
-    // Recalcul si localStorage change (ex : depuis demandes/page)
-    const recomputeFromStorage = useCallback(() => {
-        setUnreadIds(computeUnreadIds(myAppointments))
-    }, [myAppointments])
+    }, [fetchNotifications, myAppointments])
 
     const totalCount = pendingCount + unreadIds.size
 

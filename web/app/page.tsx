@@ -2,8 +2,8 @@
 
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
-import { ChevronDown, Heart, Clock, Users, GraduationCap, LayoutDashboard, LogOut, Sparkles, Stethoscope, Ambulance, HeartPulse, AlertTriangle, X, ArrowRight } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { ChevronDown, Heart, Clock, Users, GraduationCap, LayoutDashboard, LogOut, Sparkles, Stethoscope, Ambulance, HeartPulse, AlertTriangle, X, ArrowRight, Calendar } from "lucide-react";
 import { useRef, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SnowEffect } from "@/components/ui/SnowEffect";
@@ -53,6 +53,11 @@ function HomeContent() {
   const isAuthenticated = status === "authenticated";
   const heroRef = useRef(null);
   const [showAccessDenied, setShowAccessDenied] = useState(false);
+
+  const userRoles = session?.user?.roles || [];
+  const isStaff = userRoles.some(role =>
+    ['staff', 'direction', 'chirurgien', 'medecin', 'infirmier', 'ambulancier', 'recruiter'].includes(role)
+  );
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -159,13 +164,23 @@ function HomeContent() {
             {isAuthenticated ? (
               <>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Link
-                    href="/intranet"
-                    className="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2 btn-magnetic"
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span className="hidden md:inline">Accès Staff</span>
-                  </Link>
+                  {isStaff ? (
+                    <Link
+                      href="/intranet"
+                      className="px-3 md:px-4 py-2 bg-red-600 hover:bg-red-500 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2 btn-magnetic"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span className="hidden md:inline">Accès Staff</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/rendez-vous/mes-rdv"
+                      className="px-3 md:px-4 py-2 border border-white/30 hover:bg-white/5 transition-all font-display font-bold tracking-widest text-sm uppercase flex items-center gap-2"
+                    >
+                      <Calendar className="w-4 h-4 text-blue-400" />
+                      <span className="hidden md:inline">Mes Rendez-vous</span>
+                    </Link>
+                  )}
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -271,16 +286,18 @@ function HomeContent() {
             className="flex flex-col md:flex-row gap-4 justify-center"
           >
             {isAuthenticated ? (
-              <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
-                <Link href="/intranet">
-                  <button className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary">
-                    <span className="relative z-10 flex items-center gap-2">
-                      <LayoutDashboard className="w-4 h-4" />
-                      Accès Intranet
-                    </span>
-                  </button>
-                </Link>
-              </motion.div>
+              isStaff ? (
+                <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+                  <Link href="/intranet">
+                    <button className="group relative px-8 py-4 bg-red-600 hover:bg-red-500 transition-all overflow-hidden font-display font-bold tracking-widest uppercase btn-primary">
+                      <span className="relative z-10 flex items-center gap-2">
+                        <LayoutDashboard className="w-4 h-4" />
+                        Accès Intranet
+                      </span>
+                    </button>
+                  </Link>
+                </motion.div>
+              ) : null
             ) : (
               <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
                 <button
@@ -300,6 +317,16 @@ function HomeContent() {
                   <span className="flex items-center gap-2">
                     <HeartPulse className="w-4 h-4" />
                     Prendre Rendez-vous
+                  </span>
+                </button>
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }}>
+              <Link href="/rendez-vous/mes-rdv">
+                <button className="px-8 py-4 border border-white/30 hover:border-white/50 hover:bg-white/5 transition-all font-display font-bold tracking-widest uppercase text-white">
+                  <span className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-400" />
+                    Mes Rendez-vous
                   </span>
                 </button>
               </Link>

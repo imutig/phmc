@@ -139,6 +139,34 @@ export async function PATCH(
             return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 })
         }
 
+        // 4b. Insérer un message système dans le chat
+        let systemContent = ""
+        if (status === 'scheduled' && scheduled_date) {
+            const formattedDate = new Date(scheduled_date).toLocaleString('fr-FR', {
+                dateStyle: 'long',
+                timeStyle: 'short'
+            }).replace(/—/g, '-').replace(/–/g, '-')
+            systemContent = `Le rendez-vous a été programmé pour le ${formattedDate} par ${staffDisplayName} (${staffRole}).`
+        } else if (status === 'completed') {
+            systemContent = `Le rendez-vous a été marqué comme terminé par ${staffDisplayName} (${staffRole}).`
+        } else if (status === 'cancelled') {
+            systemContent = `Le rendez-vous a été annulé par ${staffDisplayName} (${staffRole}).${cancel_reason ? ` Raison : ${cancel_reason}` : ''}`
+        } else if (status === 'pending') {
+            systemContent = `Le rendez-vous a été remis en attente par ${staffDisplayName} (${staffRole}).`
+        }
+
+        if (systemContent) {
+            await supabase
+                .from('appointment_messages')
+                .insert({
+                    appointment_id: id,
+                    sender_discord_id: 'system',
+                    sender_name: 'Système',
+                    content: systemContent,
+                    is_from_staff: true
+                })
+        }
+
         // 5. Sync planning : créer un événement quand le RDV est confirmé
         if (status === 'scheduled' && scheduled_date) {
             try {
@@ -193,6 +221,7 @@ export async function PATCH(
                         'Authorization': `Bearer ${BOT_API_SECRET}`
                     },
                     body: JSON.stringify({
+                        appointmentId: id,
                         channelId: appointment.discord_channel_id || null,
                         discordId: appointment.discord_id,
                         newStatus: status,

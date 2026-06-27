@@ -95,7 +95,7 @@ export default function SuiviRdvPage() {
         fetchData()
     }, [id, authStatus])
 
-    // Supabase Realtime — écoute les nouveaux messages
+    // Supabase Realtime - écoute les nouveaux messages
     useEffect(() => {
         if (!id || authStatus !== 'authenticated') return
 
@@ -340,6 +340,17 @@ export default function SuiviRdvPage() {
                             )}
 
                             {messages.map(msg => {
+                                if (msg.sender_discord_id === 'system') {
+                                    return (
+                                        <div key={msg.id} className="flex justify-center my-2">
+                                            <div className="bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-gray-400 font-sans flex items-center gap-2 max-w-[85%] rounded">
+                                                <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                                                <span>{msg.content}</span>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+
                                 const isMe = msg.sender_discord_id === myDiscordId && !msg.is_from_staff
                                 const isStaff = msg.is_from_staff
 
@@ -405,7 +416,7 @@ export default function SuiviRdvPage() {
                             </div>
                         ) : (
                             <div className="border-t border-white/10 p-3 text-center text-xs text-gray-500 font-sans">
-                                Ce rendez-vous est clôturé — le chat est désactivé.
+                                Ce rendez-vous est clôturé - le chat est désactivé.
                             </div>
                         )}
                     </div>
