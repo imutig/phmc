@@ -15,10 +15,16 @@ interface AvailabilitySlot {
 
 const DAYS_AHEAD = 10
 
-const TIME_OPTIONS: string[] = []
-for (let h = 8; h <= 22; h++) {
-    TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:00`)
-    if (h < 22) TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:30`)
+function minsToTimeStr(mins: number): string {
+    if (mins >= 1440) return "00:00"
+    return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`
+}
+
+function timeStrToMins(t: string): number {
+    if (!t || t === "00:00") return 1440
+    const [h, m] = t.split(":").map(Number)
+    const total = h * 60 + m
+    return total === 0 ? 1440 : total
 }
 
 function getNextDays(count: number): Date[] {
@@ -53,7 +59,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
         if (exists) {
             onChange(slots.filter(s => s.date !== dateStr))
         } else {
-            onChange([...slots, { date: dateStr, from: "09:00", to: "12:00" }])
+            onChange([...slots, { date: dateStr, from: "00:01", to: "00:00" }])
         }
     }
 
@@ -88,36 +94,59 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                 .sort((a, b) => a.date.localeCompare(b.date))
                 .map(slot => {
                     const day = new Date(slot.date + "T12:00:00")
+                    const fromMins = slot.from === "00:00" ? 1 : (() => { const [h, m] = slot.from.split(":").map(Number); return h * 60 + m })()
+                    const toMins = timeStrToMins(slot.to)
                     return (
                         <div key={slot.date} className="border border-emerald-500/20 bg-emerald-500/5 p-3">
-                            <p className="text-xs text-emerald-400 font-display font-bold uppercase tracking-widest mb-3">
-                                {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-                            </p>
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1">
-                                    <label className="text-xs text-gray-500 block mb-1">De</label>
-                                    <select
-                                        value={slot.from}
-                                        onChange={e => updateSlot(slot.date, "from", e.target.value)}
-                                        className="w-full bg-black/50 border border-white/10 text-white px-2 py-1.5 text-sm font-mono focus:outline-none focus:border-emerald-500/50 appearance-none"
-                                    >
-                                        {TIME_OPTIONS.filter(t => t < slot.to).map(t => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
-                                    </select>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs text-emerald-400 font-display font-bold uppercase tracking-widest">
+                                    {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                                </p>
+                                <span className="text-xs font-mono text-white bg-emerald-600/30 px-2 py-0.5">
+                                    {slot.from} – {slot.to === "00:00" ? "minuit" : slot.to}
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                        <span>Début</span>
+                                        <span className="font-mono text-emerald-300">{slot.from}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={1}
+                                        max={toMins - 15}
+                                        step={15}
+                                        value={fromMins}
+                                        onChange={e => {
+                                            const newFromMins = Number(e.target.value)
+                                            updateSlot(slot.date, "from", minsToTimeStr(newFromMins))
+                                        }}
+                                        className="w-full accent-emerald-500 cursor-pointer"
+                                    />
                                 </div>
-                                <span className="text-gray-500 mt-4">–</span>
-                                <div className="flex-1">
-                                    <label className="text-xs text-gray-500 block mb-1">À</label>
-                                    <select
-                                        value={slot.to}
-                                        onChange={e => updateSlot(slot.date, "to", e.target.value)}
-                                        className="w-full bg-black/50 border border-white/10 text-white px-2 py-1.5 text-sm font-mono focus:outline-none focus:border-emerald-500/50 appearance-none"
-                                    >
-                                        {TIME_OPTIONS.filter(t => t > slot.from).map(t => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
-                                    </select>
+                                <div>
+                                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                        <span>Fin</span>
+                                        <span className="font-mono text-emerald-300">{slot.to === "00:00" ? "minuit (00h00)" : slot.to}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={fromMins + 15}
+                                        max={1440}
+                                        step={15}
+                                        value={toMins}
+                                        onChange={e => {
+                                            const newToMins = Number(e.target.value)
+                                            updateSlot(slot.date, "to", minsToTimeStr(newToMins))
+                                        }}
+                                        className="w-full accent-emerald-500 cursor-pointer"
+                                    />
+                                </div>
+                                <div className="flex justify-between text-[10px] text-gray-700 font-mono">
+                                    <span>00h01</span>
+                                    <span>12h00</span>
+                                    <span>00h00</span>
                                 </div>
                             </div>
                         </div>

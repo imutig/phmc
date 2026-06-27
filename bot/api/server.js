@@ -478,18 +478,12 @@ function createApiServer(client, supabase) {
         }
     });
 
-    // Changer le statut d'un RDV
     app.post('/api/appointment/status', authenticate, async (req, res) => {
         try {
-            const { channelId, discordId, newStatus, actorName, actorRole, scheduledDate, cancelReason } = req.body;
+            const { channelId, discordId, newStatus, actorName, actorRole, scheduledDate, scheduledEndDate, cancelReason } = req.body;
 
-            if (!channelId || !newStatus || !actorName) {
+            if (!newStatus || !actorName) {
                 return res.status(400).json({ error: 'Paramètres manquants' });
-            }
-
-            const channel = await client.channels.fetch(channelId);
-            if (!channel) {
-                return res.status(404).json({ error: 'Salon Discord non trouvé' });
             }
 
             const statusLabels = {
@@ -502,28 +496,36 @@ function createApiServer(client, supabase) {
             const color = newStatus === 'completed' ? 0x22C55E : newStatus === 'cancelled' ? 0xEF4444 : 0x3B82F6;
             const roleLabel = actorRole || 'Staff';
 
-            // Embed pour le salon Discord
-            const embed = new EmbedBuilder()
-                .setTitle('📋 CHANGEMENT DE STATUT RDV')
-                .setColor(color)
-                .setDescription(`Le statut a été modifié par **${actorName}** (${roleLabel}).`)
-                .addFields({ name: 'Nouveau statut', value: statusLabels[newStatus] || newStatus, inline: false });
+            // Message dans le salon Discord (optionnel)
+            if (channelId) {
+                try {
+                    const channel = await client.channels.fetch(channelId);
+                    if (channel) {
+                        const embed = new EmbedBuilder()
+                            .setTitle('📋 CHANGEMENT DE STATUT RDV')
+                            .setColor(color)
+                            .setDescription(`Le statut a été modifié par **${actorName}** (${roleLabel}).`)
+                            .addFields({ name: 'Nouveau statut', value: statusLabels[newStatus] || newStatus, inline: false });
 
-            // Ajouter les détails selon le statut
-            if (newStatus === 'scheduled' && scheduledDate) {
-                const date = new Date(scheduledDate);
-                embed.addFields({
-                    name: '📅 Date du rendez-vous',
-                    value: date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }),
-                    inline: false
-                });
+                        if (newStatus === 'scheduled' && scheduledDate) {
+                            const date = new Date(scheduledDate);
+                            let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+                            if (scheduledEndDate) {
+                                const endDate = new Date(scheduledEndDate);
+                                dateStr += ` → ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                            }
+                            embed.addFields({ name: '📅 Date du rendez-vous', value: dateStr, inline: false });
+                        }
+                        if (newStatus === 'cancelled' && cancelReason) {
+                            embed.addFields({ name: '💬 Raison', value: cancelReason, inline: false });
+                        }
+                        embed.setTimestamp();
+                        await channel.send({ embeds: [embed] });
+                    }
+                } catch (channelError) {
+                    console.error('[API] Status channel error:', channelError.message);
+                }
             }
-            if (newStatus === 'cancelled' && cancelReason) {
-                embed.addFields({ name: '💬 Raison', value: cancelReason, inline: false });
-            }
-            embed.setTimestamp();
-
-            await channel.send({ embeds: [embed] });
 
             // Envoyer DM au patient si on a son discord_id
             if (discordId) {
@@ -536,13 +538,18 @@ function createApiServer(client, supabase) {
 
                     if (newStatus === 'scheduled' && scheduledDate) {
                         const date = new Date(scheduledDate);
+                        let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+                        if (scheduledEndDate) {
+                            const endDate = new Date(scheduledEndDate);
+                            dateStr += ` → ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                        }
                         dmEmbed.setTitle('📅 Rendez-vous Programmé')
                             .setDescription([
                                 `Bonjour,`,
                                 ``,
                                 `Votre rendez-vous a été programmé par **${actorName}** (${roleLabel}).`,
                                 ``,
-                                `📅 **Date:** ${date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}`,
+                                `📅 **Date:** ${dateStr}`,
                                 ``,
                                 `Merci de votre confiance !`
                             ].join('\n'));

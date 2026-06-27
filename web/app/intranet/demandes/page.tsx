@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Clock, Calendar, CheckCircle, XCircle, User, MessageSquare,
@@ -10,12 +10,12 @@ import {
 import { useSession } from "next-auth/react";
 import { createClient } from "@/lib/supabase/client";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────────────
 
 interface AvailabilitySlot {
     date: string
-    from: string   // "09:00"
-    to: string     // "12:00"
+    from: string
+    to: string
 }
 
 interface Patient {
@@ -35,6 +35,7 @@ interface Appointment {
     reason: string | null
     availability_slots: AvailabilitySlot[]
     scheduled_date: string | null
+    scheduled_end_date: string | null
     assigned_to: string | null
     assigned_to_name: string | null
     cancel_reason: string | null
@@ -52,7 +53,44 @@ interface Message {
     created_at: string
 }
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
+interface ConfirmSlotState {
+    date: string
+    slotFrom: string
+    slotTo: string
+    selectedStart: string
+    selectedEnd: string
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────────────
+
+function timeToMins(t: string): number {
+    if (!t || t === '00:00') return 1440
+    const [h, m] = t.split(':').map(Number)
+    const total = h * 60 + m
+    return total === 0 ? 1440 : total
+}
+
+function minsToTime(mins: number): string {
+    const clamped = Math.min(mins, 1439)
+    return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+}
+
+function addMins(time: string, delta: number): string {
+    const [h, m] = time.split(':').map(Number)
+    return minsToTime(h * 60 + m + delta)
+}
+
+function generateTimeOptions(fromStr: string, toStr: string, step = 15): string[] {
+    const from = fromStr === '00:00' ? 0 : (() => { const [h, m] = fromStr.split(':').map(Number); return h * 60 + m })()
+    const to = timeToMins(toStr)
+    const opts: string[] = []
+    for (let m = from; m < to; m += step) {
+        opts.push(minsToTime(m))
+    }
+    return opts
+}
+
+// ─── Constantes ─────────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
     pending: { label: 'En attente', color: 'text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/30', icon: Clock },
@@ -69,10 +107,6 @@ const FILTER_TABS = [
     { key: 'cancelled', label: 'Annulées' },
 ] as const
 
-function formatDate(iso: string) {
-    return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
-}
-
 function formatShortDate(iso: string) {
     return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
@@ -85,12 +119,20 @@ function formatDayLabel(dateStr: string) {
 function formatScheduledDate(iso: string): string {
     const d = new Date(iso)
     const date = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-    const hour = d.getHours()
-    const end = hour + 1
-    return `${date} · ${hour}h00–${end}h00`
+    const h = String(d.getHours()).padStart(2, '0')
+    const m = String(d.getMinutes()).padStart(2, '0')
+    return `${date} · ${h}h${m}`
 }
 
-// ─── Sous-composants ──────────────────────────────────────────────────────────
+function patientDisplayName(appt: Appointment): string {
+    if (appt.patient) {
+        const name = `${appt.patient.first_name} ${appt.patient.last_name}`
+        return appt.discord_username ? `${name} (${appt.discord_username})` : name
+    }
+    return appt.discord_username || 'Patient inconnu'
+}
+
+// ─── Sous-composants ──────────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: Appointment['status'] }) {
     const cfg = STATUS_CONFIG[status]
@@ -105,13 +147,12 @@ function StatusBadge({ status }: { status: Appointment['status'] }) {
 
 function AvailabilityGrid({ slots, onSelect, disabled }: {
     slots: AvailabilitySlot[]
-    onSelect?: (date: string, time: string) => void
+    onSelect?: (date: string, slotFrom: string, slotTo: string) => void
     disabled?: boolean
 }) {
     if (!slots || slots.length === 0) {
         return <p className="text-xs text-gray-500 italic">Aucune disponibilité renseignée</p>
     }
-
     return (
         <div className="space-y-2">
             {slots.sort((a, b) => a.date.localeCompare(b.date)).map(slot => (
@@ -119,7 +160,7 @@ function AvailabilityGrid({ slots, onSelect, disabled }: {
                     key={slot.date}
                     type="button"
                     disabled={disabled}
-                    onClick={() => onSelect?.(slot.date, slot.from)}
+                    onClick={() => onSelect?.(slot.date, slot.from, slot.to)}
                     className={`w-full text-left p-2.5 border transition-all ${
                         disabled
                             ? 'border-white/10 text-gray-500 cursor-default'
@@ -130,7 +171,7 @@ function AvailabilityGrid({ slots, onSelect, disabled }: {
                         {formatDayLabel(slot.date)}
                     </p>
                     <p className={`text-sm font-mono ${disabled ? 'text-gray-500' : 'text-emerald-300'}`}>
-                        {slot.from} – {slot.to}
+                        {slot.from} – {slot.to === '00:00' ? 'minuit' : slot.to}
                     </p>
                 </button>
             ))}
@@ -138,7 +179,7 @@ function AvailabilityGrid({ slots, onSelect, disabled }: {
     )
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+// ─── Page principale ──────────────────────────────────────────────────────────────────────────
 
 export default function DemandesPage() {
     const { data: session } = useSession()
@@ -150,7 +191,7 @@ export default function DemandesPage() {
     const [refreshing, setRefreshing] = useState(false)
     const [newMessage, setNewMessage] = useState("")
     const [sending, setSending] = useState(false)
-    const [confirmSlot, setConfirmSlot] = useState<{ date: string; time: string } | null>(null)
+    const [confirmSlot, setConfirmSlot] = useState<ConfirmSlotState | null>(null)
     const [cancelModal, setCancelModal] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
     const [actionLoading, setActionLoading] = useState(false)
@@ -161,20 +202,17 @@ export default function DemandesPage() {
 
     const selected = appointments.find(a => a.id === selectedId) || null
 
-    // Toast auto-dismiss
     useEffect(() => {
         if (!toast) return
-        const t = setTimeout(() => setToast(null), 3000)
+        const t = setTimeout(() => setToast(null), 3500)
         return () => clearTimeout(t)
     }, [toast])
 
-    // Scroll bas sur nouveaux messages
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages])
 
-    // Chargement
-    const fetchAppointments = async (silent = false) => {
+    const fetchAppointments = useCallback(async (silent = false) => {
         if (!silent) setLoading(true); else setRefreshing(true)
         try {
             const url = filter ? `/api/appointments?status=${filter}` : '/api/appointments'
@@ -186,31 +224,35 @@ export default function DemandesPage() {
         } finally {
             if (!silent) setLoading(false); else setRefreshing(false)
         }
-    }
+    }, [filter])
 
     useEffect(() => {
         fetchAppointments()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filter])
+    }, [fetchAppointments])
 
-    // Charger messages du RDV sélectionné
+    const fetchMessages = useCallback(async (id: string) => {
+        const res = await fetch(`/api/appointments/${id}`)
+        if (res.ok) {
+            const data = await res.json()
+            setMessages(data.messages || [])
+        }
+    }, [])
+
     useEffect(() => {
         if (!selectedId) { setMessages([]); return }
+        fetchMessages(selectedId)
+    }, [selectedId, fetchMessages])
 
-        async function fetchMessages() {
-            const res = await fetch(`/api/appointments/${selectedId}`)
-            if (res.ok) {
-                const data = await res.json()
-                setMessages(data.messages || [])
-            }
-        }
-        fetchMessages()
-    }, [selectedId])
-
-    // Supabase Realtime pour le RDV sélectionné
+    // Polling 5s en complément du Realtime
     useEffect(() => {
         if (!selectedId) return
+        const interval = setInterval(() => fetchMessages(selectedId), 5000)
+        return () => clearInterval(interval)
+    }, [selectedId, fetchMessages])
 
+    // Supabase Realtime
+    useEffect(() => {
+        if (!selectedId) return
         const supabase = createClient()
         const channel = supabase
             .channel(`staff_rdv_${selectedId}`)
@@ -231,18 +273,16 @@ export default function DemandesPage() {
                 }
             )
             .subscribe()
-
         return () => { supabase.removeChannel(channel) }
     }, [selectedId])
 
-    // ─── Actions ─────────────────────────────────────────────────────────────
+    // ─── Actions ────────────────────────────────────────────────────────────────────────────
 
     const sendMessage = async () => {
         if (!newMessage.trim() || !selectedId || sending) return
         setSending(true)
         const content = newMessage.trim()
         setNewMessage("")
-
         const optimistic: Message = {
             id: `temp_${Date.now()}`,
             appointment_id: selectedId,
@@ -253,7 +293,6 @@ export default function DemandesPage() {
             created_at: new Date().toISOString()
         }
         setMessages(prev => [...prev, optimistic])
-
         try {
             const res = await fetch(`/api/appointments/${selectedId}/message`, {
                 method: 'POST',
@@ -262,7 +301,7 @@ export default function DemandesPage() {
             })
             if (!res.ok) {
                 setMessages(prev => prev.filter(m => m.id !== optimistic.id))
-                setToast({ msg: 'Erreur lors de l\'envoi', type: 'error' })
+                setToast({ msg: "Erreur lors de l'envoi", type: 'error' })
             }
         } catch {
             setMessages(prev => prev.filter(m => m.id !== optimistic.id))
@@ -275,27 +314,23 @@ export default function DemandesPage() {
     const confirmSchedule = async () => {
         if (!confirmSlot || !selectedId) return
         setActionLoading(true)
-
-        const [hours, minutes] = confirmSlot.time.split(':').map(Number)
-        const scheduledDate = new Date(`${confirmSlot.date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-
+        const scheduledDate = new Date(`${confirmSlot.date}T${confirmSlot.selectedStart}:00`)
+        const scheduledEndDate = new Date(`${confirmSlot.date}T${confirmSlot.selectedEnd}:00`)
+        if (confirmSlot.selectedEnd === '00:00') scheduledEndDate.setDate(scheduledEndDate.getDate() + 1)
         try {
             const res = await fetch(`/api/appointments/${selectedId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     status: 'scheduled',
-                    scheduled_date: scheduledDate.toISOString()
+                    scheduled_date: scheduledDate.toISOString(),
+                    scheduled_end_date: scheduledEndDate.toISOString()
                 })
             })
-
             if (res.ok) {
                 setToast({ msg: 'Rendez-vous confirmé ! Le patient a été notifié.', type: 'success' })
                 setConfirmSlot(null)
                 await fetchAppointments(true)
-                // Mettre à jour le RDV sélectionné
-                const appts = await fetch('/api/appointments').then(r => r.json())
-                setAppointments(appts.appointments || [])
             } else {
                 const data = await res.json()
                 setToast({ msg: data.error || 'Erreur', type: 'error' })
@@ -374,7 +409,20 @@ export default function DemandesPage() {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
     }
 
-    // ─── Render ───────────────────────────────────────────────────────────────
+    const openConfirmSlot = (date: string, slotFrom: string, slotTo: string) => {
+        const fromMins = slotFrom === '00:00' ? 0 : (() => { const [h, m] = slotFrom.split(':').map(Number); return h * 60 + m })()
+        const toMins = timeToMins(slotTo)
+        const defaultEndMins = Math.min(fromMins + 60, toMins - 15)
+        setConfirmSlot({
+            date,
+            slotFrom,
+            slotTo,
+            selectedStart: slotFrom === '00:00' ? '00:01' : slotFrom,
+            selectedEnd: minsToTime(defaultEndMins)
+        })
+    }
+
+    // ─── Render ────────────────────────────────────────────────────────────────────────────
 
     const filteredAppointments = appointments
 
@@ -402,7 +450,6 @@ export default function DemandesPage() {
 
             {/* Panneau gauche — liste */}
             <div className={`${selectedId ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-80 xl:w-96 border-r border-white/10 flex-shrink-0`}>
-                {/* Header */}
                 <div className="p-4 border-b border-white/10">
                     <div className="flex items-center justify-between mb-3">
                         <h1 className="font-display text-lg font-bold uppercase tracking-widest">Demandes RDV</h1>
@@ -414,8 +461,6 @@ export default function DemandesPage() {
                             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
-
-                    {/* Filtres */}
                     <div className="flex flex-wrap gap-1">
                         {FILTER_TABS.map(tab => (
                             <button
@@ -432,8 +477,6 @@ export default function DemandesPage() {
                         ))}
                     </div>
                 </div>
-
-                {/* Liste */}
                 <div className="flex-1 overflow-y-auto">
                     {loading ? (
                         <div className="flex items-center justify-center py-12">
@@ -459,10 +502,7 @@ export default function DemandesPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <span className="font-display font-bold text-sm text-white truncate">
-                                            {appt.patient
-                                                ? `${appt.patient.first_name} ${appt.patient.last_name}`
-                                                : appt.discord_username || 'Patient'
-                                            }
+                                            {patientDisplayName(appt)}
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-400 truncate mb-1">{appt.reason_category}</p>
@@ -481,7 +521,6 @@ export default function DemandesPage() {
             {/* Panneau droit — détail */}
             {selectedId && selected ? (
                 <div className="flex-1 flex flex-col min-w-0">
-                    {/* Header détail */}
                     <div className="p-4 border-b border-white/10 flex items-start gap-3">
                         <button
                             onClick={() => setSelectedId(null)}
@@ -492,10 +531,7 @@ export default function DemandesPage() {
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 flex-wrap">
                                 <h2 className="font-display font-bold text-lg">
-                                    {selected.patient
-                                        ? `${selected.patient.first_name} ${selected.patient.last_name}`
-                                        : selected.discord_username || 'Patient inconnu'
-                                    }
+                                    {patientDisplayName(selected)}
                                 </h2>
                                 <StatusBadge status={selected.status} />
                             </div>
@@ -506,98 +542,105 @@ export default function DemandesPage() {
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto flex flex-col lg:flex-row min-h-0">
+                    <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
 
                         {/* Colonne gauche : infos + actions */}
                         <div className="w-full lg:w-64 xl:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-white/10 p-4 space-y-4 overflow-y-auto">
 
-                            {/* Date confirmée */}
                             {selected.status === 'scheduled' && selected.scheduled_date && (
                                 <div className="border border-blue-500/30 bg-blue-500/10 p-3">
                                     <p className="text-xs text-blue-400 font-display font-bold uppercase mb-1 flex items-center gap-1">
                                         <Calendar className="w-3.5 h-3.5" /> Date confirmée
                                     </p>
                                     <p className="text-sm text-white font-sans">{formatScheduledDate(selected.scheduled_date)}</p>
+                                    {selected.scheduled_end_date && (
+                                        <p className="text-xs text-blue-300 font-mono mt-0.5">
+                                            jusqu’à {new Date(selected.scheduled_end_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    )}
                                     {selected.assigned_to_name && (
                                         <p className="text-xs text-gray-400 mt-1">Par {selected.assigned_to_name}</p>
                                     )}
                                 </div>
                             )}
 
-                            {/* Disponibilités */}
                             {selected.status === 'pending' && (
                                 <div>
                                     <p className="text-xs text-gray-400 font-display font-bold uppercase mb-2">
-                                        Disponibilités patient
+                                        Disponibilités du patient
                                     </p>
                                     <AvailabilityGrid
                                         slots={selected.availability_slots || []}
-                                        onSelect={(date, time) => setConfirmSlot({ date, time })}
+                                        onSelect={openConfirmSlot}
                                     />
-                                    <p className="text-xs text-gray-600 mt-2">Cliquez sur un créneau pour le confirmer</p>
                                 </div>
                             )}
 
-                            {selected.status === 'scheduled' && (
-                                <div>
-                                    <p className="text-xs text-gray-400 font-display font-bold uppercase mb-2">
-                                        Disponibilités initiales
-                                    </p>
-                                    <AvailabilityGrid
-                                        slots={selected.availability_slots || []}
-                                        onSelect={(date, time) => setConfirmSlot({ date, time })}
-                                    />
-                                    <p className="text-xs text-gray-600 mt-2">Cliquez pour modifier le créneau</p>
-                                </div>
-                            )}
-
-                            {/* Actions */}
-                            <div className="space-y-2 pt-2">
+                            <div className="space-y-2">
                                 {selected.status === 'scheduled' && (
-                                    <button
-                                        onClick={handleComplete}
-                                        disabled={actionLoading}
-                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 text-xs font-display font-bold uppercase tracking-wide transition-all disabled:opacity-50"
-                                    >
-                                        <CheckCircle className="w-3.5 h-3.5" /> Marquer terminé
-                                    </button>
+                                    <>
+                                        <div>
+                                            <p className="text-xs text-gray-400 font-display font-bold uppercase mb-2">
+                                                Modifier le créneau
+                                            </p>
+                                            <AvailabilityGrid
+                                                slots={selected.availability_slots || []}
+                                                onSelect={openConfirmSlot}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={handleComplete}
+                                            disabled={actionLoading}
+                                            className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-display font-bold uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            Marquer terminé
+                                        </button>
+                                        <button
+                                            onClick={() => setCancelModal(true)}
+                                            disabled={actionLoading}
+                                            className="w-full py-2 border border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs font-display uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            <XCircle className="w-3.5 h-3.5" />
+                                            Annuler
+                                        </button>
+                                    </>
                                 )}
-
-                                {(selected.status === 'pending' || selected.status === 'scheduled') && (
+                                {selected.status === 'pending' && (
                                     <button
                                         onClick={() => setCancelModal(true)}
                                         disabled={actionLoading}
-                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 text-xs font-display font-bold uppercase tracking-wide transition-all disabled:opacity-50"
+                                        className="w-full py-2 border border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs font-display uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
-                                        <XCircle className="w-3.5 h-3.5" /> Annuler le RDV
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        Refuser la demande
                                     </button>
                                 )}
-
-                                {(selected.status === 'cancelled') && (
+                                {(selected.status === 'cancelled' || selected.status === 'completed') && (
                                     <button
                                         onClick={reopenToPending}
                                         disabled={actionLoading}
-                                        className="w-full flex items-center justify-center gap-2 py-2 px-3 border border-yellow-500/40 bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20 text-xs font-display font-bold uppercase tracking-wide transition-all disabled:opacity-50"
+                                        className="w-full py-2 border border-white/20 text-gray-400 hover:text-white text-xs font-display uppercase transition-all disabled:opacity-50"
                                     >
-                                        <RefreshCw className="w-3.5 h-3.5" /> Remettre en attente
+                                        Remettre en attente
                                     </button>
                                 )}
                             </div>
 
-                            {/* Infos */}
-                            <div className="text-xs text-gray-600 font-mono space-y-1 pt-2 border-t border-white/10">
-                                <p>Créé le {formatShortDate(selected.created_at)}</p>
-                                <p className="truncate">Discord: {selected.discord_username}</p>
-                            </div>
+                            {selected.status === 'cancelled' && selected.cancel_reason && (
+                                <div className="border border-red-500/20 bg-red-500/5 p-3">
+                                    <p className="text-xs text-red-400 font-display font-bold uppercase mb-1">Raison</p>
+                                    <p className="text-xs text-gray-300 font-sans">{selected.cancel_reason}</p>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Colonne droite : chat */}
+                        {/* Chat */}
                         <div className="flex-1 flex flex-col min-h-0">
                             <div className="px-4 py-2 border-b border-white/10 flex items-center gap-2">
                                 <MessageSquare className="w-4 h-4 text-emerald-400" />
                                 <span className="font-display font-bold text-xs uppercase tracking-widest">Discussion</span>
                             </div>
-
                             <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                 {messages.length === 0 && (
                                     <div className="flex flex-col items-center justify-center h-full text-center py-8">
@@ -608,7 +651,6 @@ export default function DemandesPage() {
                                 {messages.map(msg => {
                                     const isStaff = msg.is_from_staff
                                     const isMe = msg.sender_discord_id === session?.user?.discord_id && isStaff
-
                                     return (
                                         <div key={msg.id} className={`flex gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             {!isMe && (
@@ -640,7 +682,6 @@ export default function DemandesPage() {
                                 })}
                                 <div ref={messagesEndRef} />
                             </div>
-
                             {selected.status !== 'completed' && selected.status !== 'cancelled' ? (
                                 <div className="border-t border-white/10 p-3 flex gap-2">
                                     <textarea
@@ -698,25 +739,53 @@ export default function DemandesPage() {
                                 <CalendarCheck className="w-5 h-5 text-emerald-400" />
                                 <h3 className="font-display font-bold text-lg uppercase">Confirmer le créneau</h3>
                             </div>
-
-                            <div className="border border-emerald-500/30 bg-emerald-500/10 p-4 mb-4">
-                                <p className="text-sm text-white font-sans">
-                                    <span className="font-bold">
-                                        {new Date(confirmSlot.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                                    </span>
-                                    <br />
-                                    <span className="text-emerald-300">à partir de {confirmSlot.time}</span>
+                            <div className="border border-white/10 bg-white/5 p-3 mb-4">
+                                <p className="text-xs text-gray-400 font-display uppercase mb-1">Journée</p>
+                                <p className="text-sm text-white font-sans font-bold">
+                                    {new Date(confirmSlot.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-2">
-                                    Patient : {selected.patient ? `${selected.patient.first_name} ${selected.patient.last_name}` : selected.discord_username}
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Dispo patient : {confirmSlot.slotFrom} – {confirmSlot.slotTo === '00:00' ? 'minuit' : confirmSlot.slotTo}
                                 </p>
                             </div>
-
-                            <p className="text-xs text-gray-400 font-sans mb-4">
-                                Le patient recevra une notification Discord avec la date et l'heure confirmées.
-                                Un événement sera créé dans le planning.
+                            <div className="space-y-3 mb-4">
+                                <div>
+                                    <label className="text-xs text-gray-400 font-display uppercase block mb-1">Début du RDV</label>
+                                    <select
+                                        value={confirmSlot.selectedStart}
+                                        onChange={e => {
+                                            const newStart = e.target.value
+                                            const startMins = (() => { const [h, m] = newStart.split(':').map(Number); return h * 60 + m })()
+                                            const endMins = (() => { const [h, m] = confirmSlot.selectedEnd.split(':').map(Number); return h * 60 + m })()
+                                            const newEnd = endMins <= startMins
+                                                ? minsToTime(Math.min(startMins + 15, timeToMins(confirmSlot.slotTo) - 1))
+                                                : confirmSlot.selectedEnd
+                                            setConfirmSlot(prev => prev ? { ...prev, selectedStart: newStart, selectedEnd: newEnd } : prev)
+                                        }}
+                                        className="w-full bg-white/5 border border-white/20 text-white px-3 py-2 text-sm font-mono focus:outline-none focus:border-emerald-500/50"
+                                    >
+                                        {generateTimeOptions(confirmSlot.slotFrom === '00:00' ? '00:01' : confirmSlot.slotFrom, confirmSlot.slotTo).map(t => (
+                                            <option key={t} value={t} className="bg-[#0f0f0f]">{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400 font-display uppercase block mb-1">Fin du RDV</label>
+                                    <select
+                                        value={confirmSlot.selectedEnd}
+                                        onChange={e => setConfirmSlot(prev => prev ? { ...prev, selectedEnd: e.target.value } : prev)}
+                                        className="w-full bg-white/5 border border-white/20 text-white px-3 py-2 text-sm font-mono focus:outline-none focus:border-emerald-500/50"
+                                    >
+                                        {generateTimeOptions(addMins(confirmSlot.selectedStart, 15), confirmSlot.slotTo).map(t => (
+                                            <option key={t} value={t} className="bg-[#0f0f0f]">{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500 font-sans mb-4">
+                                Patient : <span className="text-white">{patientDisplayName(selected)}</span>
+                                <br />Le patient recevra une notification Discord.
                             </p>
-
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setConfirmSlot(null)}
@@ -762,7 +831,6 @@ export default function DemandesPage() {
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
-
                             <div className="mb-4">
                                 <label className="text-xs text-gray-400 font-display uppercase block mb-2">Raison (optionnel)</label>
                                 <textarea
@@ -773,7 +841,6 @@ export default function DemandesPage() {
                                     placeholder="Raison de l'annulation..."
                                 />
                             </div>
-
                             <div className="flex gap-2">
                                 <button onClick={() => setCancelModal(false)} className="flex-1 py-2 border border-white/20 text-gray-400 hover:text-white text-sm font-display uppercase transition-all">
                                     Retour
@@ -795,7 +862,6 @@ export default function DemandesPage() {
     )
 }
 
-// Icône inline pour éviter un import supplémentaire
 function ArrowLeftIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

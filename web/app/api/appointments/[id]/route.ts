@@ -70,7 +70,7 @@ export async function PATCH(
         }
 
         const body = await request.json()
-        const { status, scheduled_date, cancel_reason } = body
+        const { status, scheduled_date, scheduled_end_date, cancel_reason } = body
 
         if (!status) {
             return NextResponse.json({ error: "Statut requis" }, { status: 400 })
@@ -154,7 +154,7 @@ export async function PATCH(
                     : (fullAppointment?.discord_username || 'Patient')
 
                 const eventStart = new Date(scheduled_date)
-                const eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000)
+                const eventEnd = scheduled_end_date ? new Date(scheduled_end_date) : new Date(eventStart.getTime() + 60 * 60 * 1000)
                 const eventDate = eventStart.toISOString().split('T')[0]
                 const startTime = eventStart.toTimeString().slice(0, 5)
                 const endTime = eventEnd.toTimeString().slice(0, 5)
@@ -183,8 +183,8 @@ export async function PATCH(
             }
         }
 
-        // 5. Notifier le bot Discord si un canal existe
-        if (appointment.discord_channel_id && BOT_API_SECRET) {
+        // 6. Notifier le bot Discord (DM + salon si disponible)
+        if (BOT_API_SECRET && appointment.discord_id) {
             try {
                 await fetch(`${BOT_API_URL}/api/appointment/status`, {
                     method: 'POST',
@@ -193,18 +193,18 @@ export async function PATCH(
                         'Authorization': `Bearer ${BOT_API_SECRET}`
                     },
                     body: JSON.stringify({
-                        channelId: appointment.discord_channel_id,
+                        channelId: appointment.discord_channel_id || null,
                         discordId: appointment.discord_id,
                         newStatus: status,
                         actorName: staffDisplayName,
                         actorRole: staffRole,
                         scheduledDate: scheduled_date || null,
+                        scheduledEndDate: scheduled_end_date || null,
                         cancelReason: cancel_reason || null
                     })
                 })
             } catch (botError) {
                 console.error('Error notifying bot:', botError)
-                // On ne bloque pas la réponse si le bot échoue
             }
         }
 
