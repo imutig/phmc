@@ -23,7 +23,8 @@ import {
     UserSearch,
     HelpCircle,
     Settings,
-    History
+    History,
+    ClipboardList
 } from "lucide-react"
 import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
 import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
@@ -114,6 +115,12 @@ const menuItems = [
         href: "/intranet/patients",
         label: "Patients",
         icon: UserSearch,
+        roles: [...EMS_GRADES]
+    },
+    {
+        href: "/intranet/demandes",
+        label: "Demandes RDV",
+        icon: ClipboardList,
         roles: [...EMS_GRADES]
     },
     {

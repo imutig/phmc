@@ -59,13 +59,25 @@ function SuccessContent() {
                             </p>
                         )}
 
-                        <Link
-                            href="/"
-                            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-display text-sm uppercase tracking-widest"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Retour à l'accueil
-                        </Link>
+                        <div className="flex flex-col gap-3">
+                            {id && (
+                                <Link
+                                    href={`/rendez-vous/${id}`}
+                                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-3 px-6 font-display font-bold tracking-widest uppercase transition-all"
+                                >
+                                    <MessageCircle className="w-4 h-4" />
+                                    Suivre mon rendez-vous
+                                </Link>
+                            )}
+
+                            <Link
+                                href="/"
+                                className="inline-flex items-center justify-center gap-2 text-gray-400 hover:text-white transition-colors font-display text-sm uppercase tracking-widest"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                Retour à l'accueil
+                            </Link>
+                        </div>
                     </div>
                 </motion.div>
             </main>

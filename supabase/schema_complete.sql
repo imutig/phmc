@@ -561,3 +561,87 @@ COMMENT ON TABLE config IS 'Configuration générale de l''application';
 -- ============================================================================
 -- FIN DU SCRIPT
 -- ============================================================================
+-- ============================================================================
+-- 12. RENDEZ-VOUS
+-- ============================================================================
+
+-- Table des patients
+CREATE TABLE IF NOT EXISTS patients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    discord_id TEXT,
+    discord_username TEXT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    birth_date DATE,
+    phone TEXT,
+    fingerprint TEXT,
+    notes TEXT,
+    created_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_patients_discord_id ON patients(discord_id);
+CREATE INDEX IF NOT EXISTS idx_patients_fingerprint ON patients(fingerprint);
+
+-- Table des rendez-vous
+CREATE TABLE IF NOT EXISTS appointments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID REFERENCES patients(id),
+    discord_id TEXT NOT NULL,
+    discord_username TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'completed', 'cancelled')),
+    reason_category TEXT,
+    reason TEXT,
+    availability_slots JSONB DEFAULT '[]'::jsonb,
+    discord_channel_id TEXT,
+    discord_message_id TEXT,
+    scheduled_date TIMESTAMPTZ,
+    assigned_to TEXT,
+    assigned_to_name TEXT,
+    cancel_reason TEXT,
+    completed_at TIMESTAMPTZ,
+    completed_by TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_discord_id ON appointments(discord_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id);
+
+-- Ajouter availability_slots si la table existait déjà sans cette colonne
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS availability_slots JSONB DEFAULT '[]'::jsonb;
+
+-- Table des messages de rendez-vous
+CREATE TABLE IF NOT EXISTS appointment_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+    sender_discord_id TEXT NOT NULL,
+    sender_name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    is_from_staff BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointment_messages_appointment_id ON appointment_messages(appointment_id);
+
+-- RLS pour appointment_messages (SELECT anon pour Supabase Realtime)
+ALTER TABLE appointment_messages ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'appointment_messages'
+        AND policyname = 'Allow anon select for realtime'
+    ) THEN
+        CREATE POLICY "Allow anon select for realtime" ON appointment_messages
+            FOR SELECT TO anon USING (true);
+    END IF;
+END $$;
+
+-- Activer Realtime sur appointment_messages
+-- Exécuter manuellement si la publication existe déjà:
+-- ALTER PUBLICATION supabase_realtime ADD TABLE appointment_messages;

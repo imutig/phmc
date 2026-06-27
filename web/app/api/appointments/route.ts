@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
                 discord_username: session.user.discord_username || session.user.name,
                 status: 'pending',
                 reason_category: body.reasonCategory,
-                reason: body.reason || null
+                reason: body.reason || null,
+                availability_slots: body.availabilitySlots || []
             })
             .select('id')
             .single()

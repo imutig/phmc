@@ -14,18 +14,12 @@ export async function GET(
             return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
         }
 
-        // Vérifier l'accès employé
-        const { authorized } = await requireEmployeeAccess()
-        if (!authorized) {
-            return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
-        }
-
         const supabase = await createClient()
 
         // Récupérer le RDV
         const { data: appointment, error: appError } = await supabase
             .from('appointments')
-            .select('*')
+            .select('*, patient:patients(*)')
             .eq('id', id)
             .single()
 
@@ -33,8 +27,16 @@ export async function GET(
             return NextResponse.json({ error: "Rendez-vous introuvable" }, { status: 404 })
         }
 
+        // Le patient peut accéder à son propre RDV, le staff à tous
+        const isEmployee = (await requireEmployeeAccess()).authorized
+        const isOwner = appointment.discord_id === session.user.discord_id
+
+        if (!isEmployee && !isOwner) {
+            return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
+        }
+
         // Récupérer les messages
-        const { data: messages, error: msgError } = await supabase
+        const { data: messages } = await supabase
             .from('appointment_messages')
             .select('*')
             .eq('appointment_id', id)
@@ -135,6 +137,49 @@ export async function PATCH(
 
         if (updateError) {
             return NextResponse.json({ error: "Erreur lors de la mise à jour" }, { status: 500 })
+        }
+
+        // 5. Sync planning : créer un événement quand le RDV est confirmé
+        if (status === 'scheduled' && scheduled_date) {
+            try {
+                const { data: fullAppointment } = await supabase
+                    .from('appointments')
+                    .select('discord_id, discord_username, patient:patients(first_name, last_name)')
+                    .eq('id', id)
+                    .single()
+
+                const patientName = fullAppointment?.patient
+                    ? `${(fullAppointment.patient as { first_name: string; last_name: string }).first_name} ${(fullAppointment.patient as { first_name: string; last_name: string }).last_name}`
+                    : (fullAppointment?.discord_username || 'Patient')
+
+                const eventStart = new Date(scheduled_date)
+                const eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000)
+                const eventDate = eventStart.toISOString().split('T')[0]
+                const startTime = eventStart.toTimeString().slice(0, 5)
+                const endTime = eventEnd.toTimeString().slice(0, 5)
+
+                const { data: newEvent } = await supabase.from('events').insert({
+                    title: `RDV - ${patientName}`,
+                    event_type: 'rdv',
+                    event_date: eventDate,
+                    start_time: startTime,
+                    end_time: endTime,
+                    color: '#10b981',
+                    is_published: true,
+                    participants_all: false,
+                    created_by: session.user.discord_id
+                }).select('id').single()
+
+                if (newEvent && fullAppointment?.discord_id && session.user.discord_id) {
+                    await supabase.from('event_participants').insert([
+                        { event_id: newEvent.id, user_discord_id: session.user.discord_id, user_name: staffDisplayName },
+                        { event_id: newEvent.id, user_discord_id: fullAppointment.discord_id, user_name: patientName }
+                    ])
+                }
+            } catch (planningError) {
+                console.error('Planning sync error:', planningError)
+                // Non-blocking
+            }
         }
 
         // 5. Notifier le bot Discord si un canal existe

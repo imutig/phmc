@@ -414,7 +414,7 @@ function createApiServer(client, supabase) {
 
     // --- ENDPOINTS RENDEZ-VOUS ---
 
-    // Envoyer un message de RDV (Web -> Discord)
+    // Envoyer un message de RDV staff -> patient (Web -> Discord)
     app.post('/api/appointment/message', authenticate, async (req, res) => {
         try {
             const { appointmentId, channelId, discordId, senderName, senderRole, content } = req.body;
@@ -449,6 +449,31 @@ function createApiServer(client, supabase) {
             res.json({ success: true });
         } catch (error) {
             console.error('[API] Appointment Message error:', error);
+            res.status(500).json({ error: 'Erreur serveur' });
+        }
+    });
+
+    // Envoyer un message patient -> salon Discord
+    app.post('/api/appointment/patient-message', authenticate, async (req, res) => {
+        try {
+            const { appointmentId, channelId, senderName, content } = req.body;
+
+            if (!appointmentId || !channelId || !senderName || !content) {
+                return res.status(400).json({ error: 'Paramètres manquants' });
+            }
+
+            try {
+                const channel = await client.channels.fetch(channelId);
+                if (channel) {
+                    await channel.send(`**[PATIENT]** ${senderName}: ${content}`);
+                }
+            } catch (channelError) {
+                console.error('[API] Patient message channel error:', channelError.message);
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            console.error('[API] Patient Message error:', error);
             res.status(500).json({ error: 'Erreur serveur' });
         }
     });
