@@ -502,10 +502,10 @@ function createApiServer(client, supabase) {
 
                         if (newStatus === 'scheduled' && scheduledDate) {
                             const date = new Date(scheduledDate);
-                            let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).replace(/—/g, '-').replace(/–/g, '-');
+                            let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' }).replace(/—/g, '-').replace(/–/g, '-');
                             if (scheduledEndDate) {
                                 const endDate = new Date(scheduledEndDate);
-                                dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                                dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })}`;
                             }
                             embed.addFields({ name: '📅 Date du rendez-vous', value: dateStr, inline: false });
                         }
@@ -537,10 +537,10 @@ function createApiServer(client, supabase) {
 
                     if (newStatus === 'scheduled' && scheduledDate) {
                         const date = new Date(scheduledDate);
-                        let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }).replace(/—/g, '-').replace(/–/g, '-');
+                        let dateStr = date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' }).replace(/—/g, '-').replace(/–/g, '-');
                         if (scheduledEndDate) {
                             const endDate = new Date(scheduledEndDate);
-                            dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                            dateStr += ` - ${endDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })}`;
                         }
                         dmEmbed.setTitle(isModification ? '📅 Rendez-vous Modifié' : '📅 Rendez-vous Programmé')
                             .setDescription([

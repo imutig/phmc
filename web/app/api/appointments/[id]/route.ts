@@ -146,7 +146,8 @@ export async function PATCH(
         if (status === 'scheduled' && scheduled_date) {
             const formattedDate = new Date(scheduled_date).toLocaleString('fr-FR', {
                 dateStyle: 'long',
-                timeStyle: 'short'
+                timeStyle: 'short',
+                timeZone: 'Europe/Paris'
             }).replace(/—/g, '-').replace(/–/g, '-')
             if (isModification) {
                 systemContent = `Le rendez-vous a été modifié pour le ${formattedDate} par ${staffDisplayName} (${staffRole}).`
@@ -187,13 +188,9 @@ export async function PATCH(
                         const oldTitle = `RDV - ${patientName}`
                         const { data: matchingEvents } = await supabase
                             .from('events')
-                            .select(`
-                                id,
-                                event_participants!inner(user_discord_id)
-                            `)
+                            .select('id')
                             .eq('event_type', 'rdv')
                             .eq('title', oldTitle)
-                            .eq('event_participants.user_discord_id', appointment.discord_id)
                             .is('deleted_at', null)
 
                         if (matchingEvents && matchingEvents.length > 0) {
@@ -209,9 +206,26 @@ export async function PATCH(
 
                 const eventStart = new Date(scheduled_date)
                 const eventEnd = scheduled_end_date ? new Date(scheduled_end_date) : new Date(eventStart.getTime() + 60 * 60 * 1000)
-                const eventDate = eventStart.toISOString().split('T')[0]
-                const startTime = eventStart.toTimeString().slice(0, 5)
-                const endTime = eventEnd.toTimeString().slice(0, 5)
+
+                // Formatter les dates/heures dans le fuseau horaire Europe/Paris
+                const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                })
+                const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
+                    timeZone: 'Europe/Paris',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                })
+
+                const dateParts = dateFormatter.format(eventStart).split('/')
+                const eventDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+                
+                const startTime = timeFormatter.format(eventStart)
+                const endTime = timeFormatter.format(eventEnd)
 
                 const { data: newEvent } = await supabase.from('events').insert({
                     title: `RDV - ${patientName}`,
