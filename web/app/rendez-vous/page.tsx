@@ -59,7 +59,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
         if (exists) {
             onChange(slots.filter(s => s.date !== dateStr))
         } else {
-            onChange([...slots, { date: dateStr, from: "00:01", to: "00:00" }])
+            onChange([...slots, { date: dateStr, from: "00:00", to: "00:00" }])
         }
     }
 
@@ -94,7 +94,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                 .sort((a, b) => a.date.localeCompare(b.date))
                 .map(slot => {
                     const day = new Date(slot.date + "T12:00:00")
-                    const fromMins = slot.from === "00:00" ? 1 : (() => { const [h, m] = slot.from.split(":").map(Number); return h * 60 + m })()
+                    const fromMins = slot.from === "00:00" ? 0 : (() => { const [h, m] = slot.from.split(":").map(Number); return h * 60 + m })()
                     const toMins = timeStrToMins(slot.to)
                     return (
                         <div key={slot.date} className="border border-emerald-500/20 bg-emerald-500/5 p-3">
@@ -114,7 +114,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                     </div>
                                     <input
                                         type="range"
-                                        min={1}
+                                        min={0}
                                         max={toMins - 15}
                                         step={15}
                                         value={fromMins}
@@ -144,7 +144,7 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                                     />
                                 </div>
                                 <div className="flex justify-between text-[10px] text-gray-700 font-mono">
-                                    <span>00h01</span>
+                                    <span>00h00</span>
                                     <span>12h00</span>
                                     <span>00h00</span>
                                 </div>

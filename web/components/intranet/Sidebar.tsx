@@ -29,6 +29,7 @@ import {
 import { useOnboardingActions } from "@/components/intranet/ClientWrapper"
 import { AnimatedLogoutButton } from "@/components/ui/AnimatedButtons"
 import { IGNModal } from "@/components/intranet/IGNModal"
+import { useRdvNotifications } from "@/hooks/useRdvNotifications"
 
 interface SidebarProps {
     userRoles?: string[]
@@ -194,6 +195,7 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
     const pathname = usePathname()
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
     const [ignModalOpen, setIgnModalOpen] = useState(false)
+    const { totalCount, unreadIds, markAsRead } = useRdvNotifications()
 
     // Fermer le menu mobile lors du changement de page
     useEffect(() => {
@@ -262,11 +264,21 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto py-4" data-onboarding="sidebar-nav">
                 <ul className="space-y-1 px-2">
-                    {visibleItems.map((item) => {
+                        {visibleItems.map((item) => {
                         const isActive = pathname === item.href
+                        const isDemandesRdv = item.href === '/intranet/demandes'
                         return (
                             <li key={item.href}>
-                                <Link href={item.href} onClick={() => isMobile && setMobileOpen(false)}>
+                                <Link
+                                    href={item.href}
+                                    onClick={() => {
+                                        if (isMobile) setMobileOpen(false)
+                                        // Marquer tous mes RDV assignés comme lus quand on ouvre la page
+                                        if (isDemandesRdv) {
+                                            unreadIds.forEach(id => markAsRead(id))
+                                        }
+                                    }}
+                                >
                                     <div
                                         className={`
                                         relative flex items-center px-3 py-2.5 rounded-md transition-colors
@@ -284,11 +296,22 @@ export function Sidebar({ userRoles = [] }: SidebarProps) {
                                         )}
                                         <item.icon className="w-5 h-5 flex-shrink-0" />
                                         {(isMobile || !collapsed) && (
-                                            <span className="ml-3 font-sans text-sm font-medium">
+                                            <span className="ml-3 font-sans text-sm font-medium flex-1">
                                                 {item.label}
                                             </span>
                                         )}
-                                        {item.roles.length === 1 && item.roles[0] === 'direction' && (isMobile || !collapsed) && (
+                                        {/* Badge de notification pour Demandes RDV */}
+                                        {isDemandesRdv && totalCount > 0 && (
+                                            <span className={`
+                                                flex items-center justify-center min-w-[18px] h-[18px] px-1
+                                                bg-red-500 text-white text-[10px] font-bold rounded-full
+                                                animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]
+                                                ${collapsed && !isMobile ? 'absolute -top-1 -right-1' : 'ml-auto'}
+                                            `}>
+                                                {totalCount > 99 ? '99+' : totalCount}
+                                            </span>
+                                        )}
+                                        {item.roles.length === 1 && item.roles[0] === 'direction' && (isMobile || !collapsed) && !isDemandesRdv && (
                                             <Shield className="w-3 h-3 ml-auto text-gray-600" />
                                         )}
                                     </div>

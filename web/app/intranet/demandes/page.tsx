@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { createClient } from "@/lib/supabase/client";
+import { useRdvNotifications } from "@/hooks/useRdvNotifications";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,9 @@ export default function DemandesPage() {
     const [cancelReason, setCancelReason] = useState("")
     const [actionLoading, setActionLoading] = useState(false)
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+
+    const { unreadIds, markAsRead } = useRdvNotifications()
+    const myDiscordId = session?.user?.discord_id
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -428,7 +432,17 @@ export default function DemandesPage() {
 
     // ─── Render ────────────────────────────────────────────────────────────────────────────
 
-    const filteredAppointments = appointments
+    // ─── Tri + rendu ───────────────────────────────────────────────────────────────────────
+
+    // Tri : pending d'abord, puis mes RDV avec messages non lus, puis le reste
+    const sortedAppointments = [...appointments].sort((a, b) => {
+        const scoreOf = (appt: Appointment) => {
+            if (appt.status === 'pending') return 3
+            if (appt.assigned_to === myDiscordId && unreadIds.has(appt.id)) return 2
+            return 1
+        }
+        return scoreOf(b) - scoreOf(a)
+    })
 
     return (
         <div className="flex h-full gap-0 relative">
@@ -492,32 +506,47 @@ export default function DemandesPage() {
                             <p className="text-gray-500 font-sans text-sm">Aucune demande</p>
                         </div>
                     ) : (
-                        filteredAppointments.map(appt => (
-                            <button
-                                key={appt.id}
-                                onClick={() => setSelectedId(appt.id)}
-                                className={`w-full text-left p-3 border-b border-white/5 hover:bg-white/5 transition-all flex items-start gap-3 ${
-                                    selectedId === appt.id ? 'bg-white/10 border-l-2 border-l-emerald-500' : ''
-                                }`}
-                            >
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <User className="w-4 h-4 text-gray-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-0.5">
-                                        <span className="font-display font-bold text-sm text-white truncate">
-                                            {patientDisplayName(appt)}
-                                        </span>
+                        sortedAppointments.map(appt => {
+                            const hasUnread = appt.assigned_to === myDiscordId && unreadIds.has(appt.id)
+                            return (
+                                <button
+                                    key={appt.id}
+                                    onClick={() => {
+                                        setSelectedId(appt.id)
+                                        // Marquer comme lu dès qu'on ouvre le RDV
+                                        if (hasUnread) markAsRead(appt.id)
+                                    }}
+                                    className={`w-full text-left p-3 border-b border-white/5 hover:bg-white/5 transition-all flex items-start gap-3 ${
+                                        selectedId === appt.id ? 'bg-white/10 border-l-2 border-l-emerald-500' : ''
+                                    }`}
+                                >
+                                    <div className="relative w-8 h-8 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <User className="w-4 h-4 text-gray-400" />
+                                        {/* Point de notification : message patient non lu (mon RDV) */}
+                                        {hasUnread && (
+                                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-400 rounded-full border border-[#0f1110] animate-pulse" />
+                                        )}
+                                        {/* Point de notification : RDV pending non pris en charge */}
+                                        {appt.status === 'pending' && !hasUnread && (
+                                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-400 rounded-full border border-[#0f1110]" />
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-400 truncate mb-1">{appt.reason_category}</p>
-                                    <div className="flex items-center gap-2">
-                                        <StatusBadge status={appt.status} />
-                                        <span className="text-xs text-gray-600 font-mono">{formatShortDate(appt.created_at)}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="font-display font-bold text-sm text-white truncate">
+                                                {patientDisplayName(appt)}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 truncate mb-1">{appt.reason_category}</p>
+                                        <div className="flex items-center gap-2">
+                                            <StatusBadge status={appt.status} />
+                                            <span className="text-xs text-gray-600 font-mono">{formatShortDate(appt.created_at)}</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-gray-600 flex-shrink-0 mt-2" />
-                            </button>
-                        ))
+                                    <ChevronRight className="w-4 h-4 text-gray-600 flex-shrink-0 mt-2" />
+                                </button>
+                            )
+                        })
                     )}
                 </div>
             </div>

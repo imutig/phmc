@@ -223,18 +223,12 @@ function setupRealtimeListener() {
 
                 if (patientError || !patient) return;
 
-                // Créer le salon et envoyer le DM
-                const channelId = await createAppointmentChannel(client, supabase, appointment, patient);
-
-                if (channelId) {
-                    log.success(`Salon RDV créé pour ${patient.first_name} ${patient.last_name}`);
-
-                    const dmSent = await sendAppointmentReceivedDM(client, supabase, appointment, patient);
-                    if (dmSent) {
-                        log.discord(`DM envoyé à ${appointment.discord_username}`);
-                    }
+                // Envoyer le DM de confirmation au patient (sans créer de salon)
+                const dmSent = await sendAppointmentReceivedDM(client, supabase, appointment, patient);
+                if (dmSent) {
+                    log.discord(`DM envoyé à ${appointment.discord_username}`);
                 } else {
-                    log.warn(`Échec création salon RDV - vérifiez /setup appointments`);
+                    log.warn(`Impossible d'envoyer le DM à ${appointment.discord_username}`);
                 }
             }
         )
