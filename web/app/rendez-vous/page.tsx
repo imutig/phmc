@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle, Loader2, AlertCircle, User, Phone, Calendar, Stethoscope, Clock } from "lucide-react";
@@ -7,15 +7,19 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 
-// â”€â”€â”€ DisponibilitÃ©s â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
 interface AvailabilitySlot {
-    date: string   // YYYY-MM-DD
-    hours: number[] // e.g. [9, 10, 14]
+    date: string
+    from: string
+    to: string
 }
 
-const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 const DAYS_AHEAD = 10
+
+const TIME_OPTIONS: string[] = []
+for (let h = 8; h <= 22; h++) {
+    TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:00`)
+    if (h < 22) TIME_OPTIONS.push(`${String(h).padStart(2, "0")}:30`)
+}
 
 function getNextDays(count: number): Date[] {
     const days: Date[] = []
@@ -29,11 +33,11 @@ function getNextDays(count: number): Date[] {
 }
 
 function formatDateKey(d: Date): string {
-    return d.toISOString().split('T')[0]
+    return d.toISOString().split("T")[0]
 }
 
 function formatDayLabel(d: Date): string {
-    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+    return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })
 }
 
 interface AvailabilityCalendarProps {
@@ -49,26 +53,16 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
         if (exists) {
             onChange(slots.filter(s => s.date !== dateStr))
         } else {
-            onChange([...slots, { date: dateStr, hours: [] }])
+            onChange([...slots, { date: dateStr, from: "09:00", to: "12:00" }])
         }
     }
 
-    const toggleHour = (dateStr: string, hour: number) => {
-        onChange(slots.map(slot =>
-            slot.date === dateStr
-                ? {
-                    ...slot,
-                    hours: slot.hours.includes(hour)
-                        ? slot.hours.filter(h => h !== hour)
-                        : [...slot.hours, hour].sort((a, b) => a - b)
-                }
-                : slot
-        ))
+    const updateSlot = (dateStr: string, field: "from" | "to", value: string) => {
+        onChange(slots.map(s => s.date === dateStr ? { ...s, [field]: value } : s))
     }
 
     return (
         <div className="space-y-3">
-            {/* SÃ©lection des jours */}
             <div className="grid grid-cols-5 gap-2">
                 {days.map(day => {
                     const dateStr = formatDateKey(day)
@@ -80,8 +74,8 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                             onClick={() => toggleDay(dateStr)}
                             className={`p-2 text-xs font-display font-bold uppercase tracking-wide border transition-all text-center leading-tight ${
                                 isSelected
-                                    ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                                    : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/30 hover:text-white'
+                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                                    : "border-white/10 bg-white/5 text-gray-400 hover:border-white/30 hover:text-white"
                             }`}
                         >
                             {formatDayLabel(day)}
@@ -90,52 +84,54 @@ function AvailabilityCalendar({ slots, onChange }: AvailabilityCalendarProps) {
                 })}
             </div>
 
-            {/* SÃ©lection des heures pour chaque jour sÃ©lectionnÃ© */}
             {slots
                 .sort((a, b) => a.date.localeCompare(b.date))
                 .map(slot => {
-                    const day = new Date(slot.date + 'T12:00:00')
+                    const day = new Date(slot.date + "T12:00:00")
                     return (
                         <div key={slot.date} className="border border-emerald-500/20 bg-emerald-500/5 p-3">
-                            <p className="text-xs text-emerald-400 font-display font-bold uppercase tracking-widest mb-2">
-                                {day.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            <p className="text-xs text-emerald-400 font-display font-bold uppercase tracking-widest mb-3">
+                                {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
                             </p>
-                            <div className="flex flex-wrap gap-1.5">
-                                {HOURS.map(h => {
-                                    const isActive = slot.hours.includes(h)
-                                    return (
-                                        <button
-                                            key={h}
-                                            type="button"
-                                            onClick={() => toggleHour(slot.date, h)}
-                                            className={`px-2.5 py-1 text-xs font-mono border transition-all ${
-                                                isActive
-                                                    ? 'border-emerald-500 bg-emerald-500/30 text-emerald-200'
-                                                    : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-gray-300'
-                                            }`}
-                                        >
-                                            {h}h
-                                        </button>
-                                    )
-                                })}
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1">
+                                    <label className="text-xs text-gray-500 block mb-1">De</label>
+                                    <select
+                                        value={slot.from}
+                                        onChange={e => updateSlot(slot.date, "from", e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 text-white px-2 py-1.5 text-sm font-mono focus:outline-none focus:border-emerald-500/50 appearance-none"
+                                    >
+                                        {TIME_OPTIONS.filter(t => t < slot.to).map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <span className="text-gray-500 mt-4">–</span>
+                                <div className="flex-1">
+                                    <label className="text-xs text-gray-500 block mb-1">À</label>
+                                    <select
+                                        value={slot.to}
+                                        onChange={e => updateSlot(slot.date, "to", e.target.value)}
+                                        className="w-full bg-black/50 border border-white/10 text-white px-2 py-1.5 text-sm font-mono focus:outline-none focus:border-emerald-500/50 appearance-none"
+                                    >
+                                        {TIME_OPTIONS.filter(t => t > slot.from).map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
-                            {slot.hours.length === 0 && (
-                                <p className="text-xs text-gray-600 mt-1">SÃ©lectionnez au moins une heure</p>
-                            )}
                         </div>
                     )
                 })}
 
             {slots.length === 0 && (
                 <p className="text-xs text-gray-600 text-center py-2">
-                    Cliquez sur les jours pour indiquer vos disponibilitÃ©s
+                    Cliquez sur les jours pour indiquer vos disponibilités
                 </p>
             )}
         </div>
     )
 }
-
-// â”€â”€â”€ Page principale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function RendezVousPage() {
     const router = useRouter();
@@ -148,19 +144,18 @@ export default function RendezVousPage() {
         birthDate: "",
         reasonCategory: "",
         reason: "",
-        fingerprint: "",
     });
 
     const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
 
     const REASON_CATEGORIES = [
-        "Une visite mÃ©dicale",
+        "Une visite médicale",
         "Un test psychotechnique (PPA)",
-        "Un rendez-vous avec un mÃ©decin",
+        "Un rendez-vous avec un médecin",
         "Un rendez-vous avec la direction",
         "Un suivi psychologique",
-        "Un suivi gynÃ©cologique/obsÃ©trique",
-        "Autre (Ã  prÃ©ciser)"
+        "Un suivi gynécologique/obsétrique",
+        "Autre (à préciser)"
     ];
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -190,7 +185,6 @@ export default function RendezVousPage() {
                 setIsLoadingData(false);
             }
         }
-
         if (status === "authenticated") {
             fetchPatientData();
         } else if (status !== "loading") {
@@ -223,10 +217,10 @@ export default function RendezVousPage() {
                         <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
                         <h2 className="font-display text-2xl font-bold mb-2 uppercase">Connexion requise</h2>
                         <p className="font-sans text-gray-400 mb-6">
-                            Vous devez Ãªtre connectÃ© avec Discord pour prendre rendez-vous.
+                            Vous devez être connecté avec Discord pour prendre rendez-vous.
                         </p>
                         <button
-                            onClick={() => signIn("discord", { callbackUrl: `/rendez-vous` })}
+                            onClick={() => signIn("discord", { callbackUrl: "/rendez-vous" })}
                             className="w-full flex items-center justify-center gap-3 bg-[#5865F2] hover:bg-[#4752C4] text-white py-4 px-6 font-display font-bold tracking-widest uppercase transition-all"
                         >
                             Se connecter avec Discord
@@ -251,15 +245,13 @@ export default function RendezVousPage() {
             return;
         }
 
-        if (formData.reasonCategory === "Autre (Ã  prÃ©ciser)" && !formData.reason) {
-            setError("Veuillez prÃ©ciser le motif.");
+        if (formData.reasonCategory === "Autre (à préciser)" && !formData.reason) {
+            setError("Veuillez préciser le motif.");
             return;
         }
 
-        // Validation des disponibilitÃ©s
-        const validSlots = availabilitySlots.filter(s => s.hours.length > 0)
-        if (validSlots.length === 0) {
-            setError("Veuillez indiquer au moins une disponibilitÃ© (jour + heure).");
+        if (availabilitySlots.length === 0) {
+            setError("Veuillez indiquer au moins une disponibilité.");
             return;
         }
 
@@ -269,7 +261,7 @@ export default function RendezVousPage() {
             const response = await fetch("/api/appointments", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...formData, availabilitySlots: validSlots }),
+                body: JSON.stringify({ ...formData, availabilitySlots }),
             });
 
             const data = await response.json();
@@ -283,7 +275,7 @@ export default function RendezVousPage() {
             router.push(`/rendez-vous/success?id=${data.appointmentId}`);
         } catch (err) {
             console.error("Erreur:", err);
-            setError("Une erreur est survenue. Veuillez rÃ©essayer.");
+            setError("Une erreur est survenue. Veuillez réessayer.");
             setIsSubmitting(false);
         }
     };
@@ -303,17 +295,14 @@ export default function RendezVousPage() {
                         <span className="font-sans text-sm">Retour</span>
                     </Link>
                     <div className="text-emerald-400 font-display font-bold tracking-widest text-sm">
-                        RENDEZ-VOUS MÃ‰DICAL
+                        RENDEZ-VOUS MÉDICAL
                     </div>
                 </div>
             </nav>
 
             <main className="min-h-screen bg-[#0a0a0a] text-white pt-32 pb-12 px-4">
                 <div className="max-w-2xl mx-auto">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                    >
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-8">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="px-4 py-1 border border-emerald-500/50 bg-white/5 rounded">
@@ -329,7 +318,7 @@ export default function RendezVousPage() {
                                 Prendre Rendez-Vous
                             </h1>
                             <p className="text-gray-400 font-sans">
-                                Remplissez ce formulaire pour prendre rendez-vous avec notre Ã©quipe mÃ©dicale.
+                                Remplissez ce formulaire pour prendre rendez-vous avec notre équipe médicale.
                                 Nous vous contacterons via Discord.
                             </p>
                         </div>
@@ -343,7 +332,6 @@ export default function RendezVousPage() {
 
                         <form onSubmit={handleSubmit} className="border border-white/10 bg-white/[0.02] p-6 space-y-6">
 
-                            {/* Informations patient */}
                             <h2 className="font-display text-xl font-bold uppercase flex items-center gap-3">
                                 <div className="w-1 h-6 bg-emerald-500" />
                                 Informations Patient
@@ -365,7 +353,7 @@ export default function RendezVousPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block font-display text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">PrÃ©nom</label>
+                                    <label className="block font-display text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">Prénom</label>
                                     <div className="relative">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
                                         <input
@@ -373,38 +361,17 @@ export default function RendezVousPage() {
                                             value={formData.firstName}
                                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                                             className="w-full bg-white/5 border border-white/10 text-white pl-12 pr-4 py-3 focus:outline-none focus:border-white/30 transition-colors placeholder:text-gray-600"
-                                            placeholder="Votre prÃ©nom"
+                                            placeholder="Votre prénom"
                                             required
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block font-display text-sm font-bold text-gray-400 mb-2 uppercase tracking-widest">
-                                    Empreinte (ID In-Game)
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono text-lg">#</span>
-                                    <input
-                                        type="text"
-                                        value={formData.fingerprint}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                            setFormData({ ...formData, fingerprint: val });
-                                        }}
-                                        className="w-full bg-white/5 border border-white/10 text-white pl-12 pr-4 py-3 focus:outline-none focus:border-white/30 transition-colors placeholder:text-gray-600 font-mono tracking-widest"
-                                        placeholder="123456"
-                                        required
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">Votre identifiant unique en ville (6 chiffres max).</p>
-                            </div>
-
                             <div className="space-y-2">
                                 <label className="text-sm text-gray-400 font-sans flex items-center gap-2">
                                     <Phone className="w-4 h-4" />
-                                    NumÃ©ro de tÃ©lÃ©phone *
+                                    Numéro de téléphone *
                                 </label>
                                 <input
                                     type="tel"
@@ -444,46 +411,42 @@ export default function RendezVousPage() {
                                     onChange={handleInputChange}
                                     className="w-full bg-black/50 border border-white/10 p-3 text-white focus:outline-none focus:border-emerald-500/50 transition-colors font-sans appearance-none"
                                 >
-                                    <option value="">SÃ©lectionnez un motif...</option>
+                                    <option value="">Sélectionnez un motif...</option>
                                     {REASON_CATEGORIES.map(category => (
                                         <option key={category} value={category}>{category}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            {formData.reasonCategory === "Autre (Ã  prÃ©ciser)" && (
+                            {formData.reasonCategory === "Autre (à préciser)" && (
                                 <div className="space-y-2">
-                                    <label className="text-sm text-gray-400 font-sans">PrÃ©cisez votre demande *</label>
+                                    <label className="text-sm text-gray-400 font-sans">Précisez votre demande *</label>
                                     <textarea
                                         name="reason"
                                         required
                                         rows={3}
                                         className="w-full bg-black/50 border border-white/10 p-3 text-white focus:outline-none focus:border-emerald-500/50 transition-colors resize-none font-sans"
-                                        placeholder="DÃ©crivez briÃ¨vement la raison de votre visite..."
+                                        placeholder="Décrivez brièvement la raison de votre visite..."
                                         value={formData.reason}
                                         onChange={handleInputChange}
                                     />
                                 </div>
                             )}
 
-                            {/* DisponibilitÃ©s */}
                             <div className="border-t border-white/10 pt-6">
                                 <h2 className="font-display text-xl font-bold uppercase flex items-center gap-3 mb-4">
                                     <div className="w-1 h-6 bg-emerald-500" />
-                                    Vos DisponibilitÃ©s
+                                    Vos Disponibilités
                                 </h2>
                                 <p className="text-sm text-gray-400 font-sans mb-4">
-                                    Indiquez les jours et heures oÃ¹ vous Ãªtes disponible sur les prochains jours.
-                                    Un mÃ©decin choisira un crÃ©neau parmi vos disponibilitÃ©s.
+                                    Sélectionnez les jours où vous êtes disponible et indiquez votre plage horaire.
+                                    Un médecin choisira un créneau dans votre plage.
                                 </p>
                                 <div className="flex items-center gap-2 mb-3 text-xs text-gray-500 font-sans">
                                     <Clock className="w-3.5 h-3.5" />
-                                    Chaque crÃ©neau reprÃ©sente 1 heure de disponibilitÃ©
+                                    Vous pouvez sélectionner plusieurs jours
                                 </div>
-                                <AvailabilityCalendar
-                                    slots={availabilitySlots}
-                                    onChange={setAvailabilitySlots}
-                                />
+                                <AvailabilityCalendar slots={availabilitySlots} onChange={setAvailabilitySlots} />
                             </div>
 
                             <div className="pt-4 flex justify-end">
@@ -508,7 +471,7 @@ export default function RendezVousPage() {
                         </form>
 
                         <p className="mt-6 text-xs text-gray-600 text-center font-mono">
-                            En prenant rendez-vous, vous acceptez d'Ãªtre contactÃ© via Discord.
+                            En prenant rendez-vous, vous acceptez d'être contacté via Discord.
                         </p>
                     </motion.div>
                 </div>
@@ -516,4 +479,3 @@ export default function RendezVousPage() {
         </>
     );
 }
-

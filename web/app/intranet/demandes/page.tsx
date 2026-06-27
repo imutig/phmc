@@ -14,7 +14,8 @@ import { createClient } from "@/lib/supabase/client";
 
 interface AvailabilitySlot {
     date: string
-    hours: number[]
+    from: string   // "09:00"
+    to: string     // "12:00"
 }
 
 interface Patient {
@@ -104,7 +105,7 @@ function StatusBadge({ status }: { status: Appointment['status'] }) {
 
 function AvailabilityGrid({ slots, onSelect, disabled }: {
     slots: AvailabilitySlot[]
-    onSelect?: (date: string, hour: number) => void
+    onSelect?: (date: string, time: string) => void
     disabled?: boolean
 }) {
     if (!slots || slots.length === 0) {
@@ -114,28 +115,24 @@ function AvailabilityGrid({ slots, onSelect, disabled }: {
     return (
         <div className="space-y-2">
             {slots.sort((a, b) => a.date.localeCompare(b.date)).map(slot => (
-                <div key={slot.date}>
-                    <p className="text-xs text-gray-400 font-display font-bold uppercase mb-1">
+                <button
+                    key={slot.date}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSelect?.(slot.date, slot.from)}
+                    className={`w-full text-left p-2.5 border transition-all ${
+                        disabled
+                            ? 'border-white/10 text-gray-500 cursor-default'
+                            : 'border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 hover:border-emerald-500/60 cursor-pointer'
+                    }`}
+                >
+                    <p className="text-xs text-gray-400 font-display font-bold uppercase mb-0.5">
                         {formatDayLabel(slot.date)}
                     </p>
-                    <div className="flex flex-wrap gap-1">
-                        {slot.hours.sort((a, b) => a - b).map(hour => (
-                            <button
-                                key={hour}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => onSelect?.(slot.date, hour)}
-                                className={`px-2.5 py-1 text-xs font-mono border transition-all ${
-                                    disabled
-                                        ? 'border-white/10 text-gray-500 cursor-default'
-                                        : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/30 hover:border-emerald-500/60 cursor-pointer'
-                                }`}
-                            >
-                                {hour}h
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                    <p className={`text-sm font-mono ${disabled ? 'text-gray-500' : 'text-emerald-300'}`}>
+                        {slot.from} – {slot.to}
+                    </p>
+                </button>
             ))}
         </div>
     )
@@ -153,7 +150,7 @@ export default function DemandesPage() {
     const [refreshing, setRefreshing] = useState(false)
     const [newMessage, setNewMessage] = useState("")
     const [sending, setSending] = useState(false)
-    const [confirmSlot, setConfirmSlot] = useState<{ date: string; hour: number } | null>(null)
+    const [confirmSlot, setConfirmSlot] = useState<{ date: string; time: string } | null>(null)
     const [cancelModal, setCancelModal] = useState(false)
     const [cancelReason, setCancelReason] = useState("")
     const [actionLoading, setActionLoading] = useState(false)
@@ -279,8 +276,8 @@ export default function DemandesPage() {
         if (!confirmSlot || !selectedId) return
         setActionLoading(true)
 
-        // Construire la date ISO à partir du créneau choisi
-        const scheduledDate = new Date(`${confirmSlot.date}T${String(confirmSlot.hour).padStart(2, '0')}:00:00`)
+        const [hours, minutes] = confirmSlot.time.split(':').map(Number)
+        const scheduledDate = new Date(`${confirmSlot.date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
 
         try {
             const res = await fetch(`/api/appointments/${selectedId}`, {
@@ -535,7 +532,7 @@ export default function DemandesPage() {
                                     </p>
                                     <AvailabilityGrid
                                         slots={selected.availability_slots || []}
-                                        onSelect={(date, hour) => setConfirmSlot({ date, hour })}
+                                        onSelect={(date, time) => setConfirmSlot({ date, time })}
                                     />
                                     <p className="text-xs text-gray-600 mt-2">Cliquez sur un créneau pour le confirmer</p>
                                 </div>
@@ -548,7 +545,7 @@ export default function DemandesPage() {
                                     </p>
                                     <AvailabilityGrid
                                         slots={selected.availability_slots || []}
-                                        onSelect={(date, hour) => setConfirmSlot({ date, hour })}
+                                        onSelect={(date, time) => setConfirmSlot({ date, time })}
                                     />
                                     <p className="text-xs text-gray-600 mt-2">Cliquez pour modifier le créneau</p>
                                 </div>
@@ -708,7 +705,7 @@ export default function DemandesPage() {
                                         {new Date(confirmSlot.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                                     </span>
                                     <br />
-                                    <span className="text-emerald-300">{confirmSlot.hour}h00 — {confirmSlot.hour + 1}h00</span>
+                                    <span className="text-emerald-300">à partir de {confirmSlot.time}</span>
                                 </p>
                                 <p className="text-xs text-gray-400 mt-2">
                                     Patient : {selected.patient ? `${selected.patient.first_name} ${selected.patient.last_name}` : selected.discord_username}

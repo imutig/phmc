@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
 
         // Validation des champs requis
-        const requiredFields = ['firstName', 'lastName', 'phone', 'birthDate', 'fingerprint']
+        const requiredFields = ['firstName', 'lastName', 'phone', 'birthDate']
         for (const field of requiredFields) {
             if (!body[field]) {
                 return NextResponse.json(
@@ -116,19 +116,33 @@ export async function POST(request: NextRequest) {
         }
 
         // Créer le rendez-vous
-        const { data: appointment, error: appError } = await supabase
+        const insertData: Record<string, unknown> = {
+            patient_id: patientId,
+            discord_id: session.user.discord_id,
+            discord_username: session.user.discord_username || session.user.name,
+            status: 'pending',
+            reason_category: body.reasonCategory,
+            reason: body.reason || null,
+            availability_slots: body.availabilitySlots || []
+        }
+
+        let { data: appointment, error: appError } = await supabase
             .from('appointments')
-            .insert({
-                patient_id: patientId,
-                discord_id: session.user.discord_id,
-                discord_username: session.user.discord_username || session.user.name,
-                status: 'pending',
-                reason_category: body.reasonCategory,
-                reason: body.reason || null,
-                availability_slots: body.availabilitySlots || []
-            })
+            .insert(insertData)
             .select('id')
             .single()
+
+        // Fallback si la colonne availability_slots n'existe pas encore (migration SQL non jouée)
+        if (appError?.code === 'PGRST204') {
+            const { availability_slots: _, ...insertWithout } = insertData
+            const fallback = await supabase
+                .from('appointments')
+                .insert(insertWithout)
+                .select('id')
+                .single()
+            appointment = fallback.data
+            appError = fallback.error
+        }
 
         if (appError || !appointment) {
             console.error('Error creating appointment:', appError)
